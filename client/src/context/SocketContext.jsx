@@ -14,7 +14,7 @@ export const SocketProvider = ({ children }) => {
         let newSocket;
         if (user) {
             setStatus('connecting');
-            newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5050', {
+           newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
                 reconnection: true,
                 reconnectionAttempts: 10,
                 reconnectionDelay: 1000,

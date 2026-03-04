@@ -28,32 +28,102 @@ const emitQueueUpdate = async () => {
         io.to('admin:room').emit('queue:update', queue);
     } catch (_) { }
 };
-
 // @desc   Book a token
 // @route  POST /api/tokens
 // @access Private (customer)
 exports.bookToken = async (req, res, next) => {
     try {
         if (req.user.role !== 'customer') {
-            return res.status(403).json({ success: false, message: 'Only customers can book tokens' });
+            return res.status(403).json({
+                success: false,
+                message: 'Only customers can book tokens'
+            });
         }
 
         const { serviceId, date, timeSlot, staffId, notes } = req.body;
 
         if (!serviceId || !date || !timeSlot) {
-            return res.status(400).json({ success: false, message: 'Missing required fields' });
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields'
+            });
         }
 
         const bookingDate = new Date(date);
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         if (isNaN(bookingDate) || bookingDate < today) {
-            return res.status(400).json({ success: false, message: 'Invalid booking date' });
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid booking date'
+            });
         }
+
+        // ===============================
+        // 🔒 Prevent booking past time
+        // ===============================
+
+        const now = new Date();
+
+        const isSameDay =
+            bookingDate.toDateString() === now.toDateString();
+
+        if (isSameDay) {
+
+            // Expecting format like "7:00 PM" or "07:00 AM"
+            const timeParts = timeSlot.trim().split(' ');
+
+            if (timeParts.length !== 2) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid time format'
+                });
+            }
+
+            const [time, modifier] = timeParts;
+            let [hours, minutes] = time.split(':');
+
+            hours = parseInt(hours);
+            minutes = parseInt(minutes);
+
+            if (isNaN(hours) || isNaN(minutes)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid time format'
+                });
+            }
+
+            // Convert to 24-hour format
+            if (modifier.toUpperCase() === 'PM' && hours !== 12) {
+                hours += 12;
+            }
+
+            if (modifier.toUpperCase() === 'AM' && hours === 12) {
+                hours = 0;
+            }
+
+            const selectedDateTime = new Date(bookingDate);
+            selectedDateTime.setHours(hours, minutes, 0, 0);
+
+            if (selectedDateTime <= now) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot book past time slot'
+                });
+            }
+        }
+
+        // ===============================
+        // Continue normal booking logic
+        // ===============================
 
         const service = await Service.findById(serviceId);
         if (!service || !service.isActive) {
-            return res.status(404).json({ success: false, message: 'Service not found' });
+            return res.status(404).json({
+                success: false,
+                message: 'Service not found'
+            });
         }
 
         const existing = await Token.findOne({
@@ -64,13 +134,20 @@ exports.bookToken = async (req, res, next) => {
         });
 
         if (existing) {
-            return res.status(400).json({ success: false, message: 'You already have booking for this slot' });
+            return res.status(400).json({
+                success: false,
+                message: 'You already have booking for this slot'
+            });
         }
 
         const tokenNumber = await generateTokenNumber(Token);
         const qrToken = generateQRToken();
 
-        const staffCount = await User.countDocuments({ role: 'staff', isActive: true });
+        const staffCount = await User.countDocuments({
+            role: 'staff',
+            isActive: true
+        });
+
         const waitTime = await predictWaitingTime(serviceId, staffCount);
         const qrCode = await generateQRCode({ tokenNumber, qrToken });
 
@@ -91,7 +168,10 @@ exports.bookToken = async (req, res, next) => {
 
         emitQueueUpdate();
 
-        res.status(201).json({ success: true, token });
+        res.status(201).json({
+            success: true,
+            token
+        });
 
     } catch (err) {
         next(err);
@@ -440,3 +520,4 @@ exports.getAllTokens = async (req, res, next) => {
         next(err);
     }
 };
+
