@@ -1,0 +1,51 @@
+// Socket.io configuration and event management
+let io;
+
+const initSocket = (server) => {
+    const { Server } = require('socket.io');
+    io = new Server(server, {
+        cors: {
+            origin: process.env.CLIENT_URL || 'http://localhost:5173',
+            methods: ['GET', 'POST'],
+        },
+    });
+
+    io.on('connection', (socket) => {
+        console.log(`🔌 Client connected: ${socket.id}`);
+
+        // Join personal room for targeted notifications
+        socket.on('join:room', (userId) => {
+            socket.join(`user:${userId}`);
+            console.log(`👤 User ${userId} joined their room`);
+        });
+
+        // Join queue room for live queue updates
+        socket.on('join:queue', () => {
+            socket.join('queue:live');
+        });
+
+        // Customer sends geo location update
+        socket.on('geo:update', async (data) => {
+            const { tokenId, lat, lng, userId } = data;
+            // Broadcast arrival status to admin room
+            io.to('admin:room').emit('geo:arrival', { tokenId, lat, lng, userId });
+        });
+
+        socket.on('join:admin', () => {
+            socket.join('admin:room');
+        });
+
+        socket.on('disconnect', () => {
+            console.log(`🔌 Client disconnected: ${socket.id}`);
+        });
+    });
+
+    return io;
+};
+
+const getIO = () => {
+    if (!io) throw new Error('Socket.io not initialized');
+    return io;
+};
+
+module.exports = { initSocket, getIO };
