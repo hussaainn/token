@@ -25,7 +25,7 @@ const emitQueueUpdate = async () => {
             .sort({ createdAt: 1 })
             .limit(10)
             .populate('customer', 'name')
-            .populate('service', 'name duration')
+            .populate('service', 'name duration price')
             .populate('staff', 'name');
         io.to('queue:live').emit('queue:update', queue);
         io.to('admin:room').emit('queue:update', queue);
@@ -43,15 +43,36 @@ exports.bookToken = async (req, res, next) => {
 
         const { serviceId, date, timeSlot, staffId, notes } = req.body;
 
+        const mongoose = require('mongoose');
+        if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid serviceId format: ${serviceId}. Must be a valid MongoDB ObjectId.`
+            });
+        }
+
         if (!serviceId || !date || !timeSlot) {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
-        const bookingDate = new Date(date);
+        let tokenDate;
+        if (date.includes('/')) {
+            // Handle MM/DD/YYYY format
+            const parts = date.split('/');
+            if (parts.length === 3) {
+                // Convert to YYYY-MM-DD
+                const normalized = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                tokenDate = new Date(normalized + 'T00:00:00.000Z');
+            }
+        } else {
+            // Handle YYYY-MM-DD format
+            tokenDate = new Date(date + 'T00:00:00.000Z');
+        }
+
         const today = new Date(); today.setHours(0, 0, 0, 0);
 
-        if (isNaN(bookingDate) || bookingDate < today) {
-            return res.status(400).json({ success: false, message: 'Invalid booking date' });
+        if (isNaN(tokenDate.getTime()) || tokenDate < today) {
+            return res.status(400).json({ success: false, message: 'Invalid booking date. Please use YYYY-MM-DD' });
         }
 
         const service = await Service.findById(serviceId);
@@ -61,7 +82,7 @@ exports.bookToken = async (req, res, next) => {
 
         const existing = await Token.findOne({
             customer: req.user._id,
-            date: bookingDate,
+            date: tokenDate,
             timeSlot,
             status: { $in: ['waiting', 'serving'] }
         });
@@ -74,22 +95,29 @@ exports.bookToken = async (req, res, next) => {
         const qrToken = generateQRToken();
 
         const staffCount = await User.countDocuments({ role: 'staff', isActive: true });
-        const waitTime = await predictWaitingTime(serviceId, staffCount);
+        const waitTime = await predictWaitingTime(serviceId, staffCount, tokenDate);
         const qrCode = await generateQRCode({ tokenNumber, qrToken });
+
+        // Calculate Loyalty Discount
+        const userDocL = await User.findById(req.user._id).select('loyaltyPoints loyaltyTier');
+        const discountMap = { bronze: 0, silver: 10, gold: 20, platinum: 30 };
+        const discountPercent = discountMap[userDocL?.loyaltyTier || 'bronze'] || 0;
+        const discountedPrice = service.price - (service.price * discountPercent / 100);
 
         const token = await Token.create({
             tokenNumber,
             customer: req.user._id,
             service: serviceId,
             staff: staffId || null,
-            date: bookingDate,
+            date: tokenDate,
             timeSlot,
             notes,
             qrToken,
             qrCode,
             estimatedWaitTime: waitTime,
             status: 'waiting',
-            arrivalStatus: 'unknown'
+            arrivalStatus: 'unknown',
+            totalAmount: discountedPrice // apply discount to base creation cost
         });
 
         emitQueueUpdate();
@@ -107,7 +135,7 @@ exports.bookToken = async (req, res, next) => {
                     tokenNumber: token.tokenNumber,
                     serviceName: service.name,
                     staffName: staffDoc ? staffDoc.name : 'No Preference',
-                    date: bookingDate.toDateString(),
+                    date: tokenDate.toDateString(),
                     timeSlot: timeSlot,
                     qrCodeDataUrl: qrCodeBase64,
                     frontendUrl: frontendUrl
@@ -210,7 +238,7 @@ exports.getLiveQueue = async (req, res, next) => {
             .sort({ createdAt: 1 })
             .limit(10)
             .populate('customer', 'name')
-            .populate('service', 'name duration')
+            .populate('service', 'name duration price')
             .populate('staff', 'name');
 
         res.json({ success: true, count: queue.length, queue });
@@ -223,9 +251,17 @@ exports.getLiveQueue = async (req, res, next) => {
 // @route  GET /api/tokens/my
 // @access Private (customer)
 exports.getMyTokens = async (req, res, next) => {
+    console.log('getMyTokens called, req.user:', req.user);
     try {
+        if (!req.user?._id) {
+            return res.status(400).json({ success: false, message: 'User not authenticated' });
+        }
+
         const { status, page = 1, limit = 10 } = req.query;
-        const filter = { customer: req.user._id };
+        const filter = {
+            customer: req.user._id,
+            service: { $type: 'objectId' }
+        };
         if (status) filter.status = status;
 
         const tokens = await Token.find(filter)
@@ -237,7 +273,7 @@ exports.getMyTokens = async (req, res, next) => {
 
         const tokensWithPosition = await Promise.all(tokens.map(async (t) => {
             if (['waiting', 'serving'].includes(t.status)) {
-                const position = await getQueuePosition(t.date, t.createdAt);
+                const position = await getQueuePosition(t.service._id, t.date);
                 return { ...t.toObject(), position };
             }
             return t.toObject();
@@ -272,7 +308,7 @@ exports.getToken = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Access denied' });
         }
 
-        const position = await getQueuePosition(token.date, token.createdAt);
+        const position = await getQueuePosition(token.service._id, token.date);
 
         res.json({
             success: true,
@@ -292,15 +328,16 @@ exports.updateTokenStatus = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Access denied' });
         }
 
-        const { status } = req.body;
-        const valid = ['waiting', 'serving', 'completed', 'cancelled', 'no-show'];
+        const { status, paymentMethod, amount } = req.body;
+        const valid = ['waiting', 'arrived', 'serving', 'completed', 'cancelled', 'no-show'];
 
         if (!valid.includes(status)) {
             return res.status(400).json({ success: false, message: 'Invalid status' });
         }
 
         const token = await Token.findById(req.params.id)
-            .populate('service customer');
+            .populate('service customer')
+            .populate('addOnServices.service');
 
         if (!token) {
             return res.status(404).json({ success: false, message: 'Token not found' });
@@ -321,22 +358,35 @@ exports.updateTokenStatus = async (req, res, next) => {
 
             token.completedAt = new Date();
 
+            const service = token.service;
+            let price = amount !== undefined ? Number(amount) : (service?.price || 0);
+            let finalMethod = paymentMethod || 'cash';
+
             const existingPayment = await Payment.findOne({ token: token._id });
             if (!existingPayment) {
-
-                const service = token.service;
-                const price = service?.price || 0;
-
-                await Payment.create({
+                const paymentData = {
                     token: token._id,
-                    customer: token.customer._id,
-                    service: service._id,
                     amount: price,
                     finalAmount: price,
-                    status: 'completed'
-                });
+                    method: finalMethod,
+                    status: 'completed',
+                    service: service._id,
+                    ...(token.customer ? { customer: token.customer._id } : { customerName: token.customerName, phone: token.phone })
+                };
+                await Payment.create(paymentData);
+            } else {
+                existingPayment.method = finalMethod;
+                existingPayment.finalAmount = price;
+                existingPayment.status = 'completed';
+                await existingPayment.save();
+            }
 
-                const points = Math.floor(price / 100);
+            let points = 0;
+            let totalPointsInfo = 0;
+            let currentTierInfo = 'bronze';
+
+            if (token.customer && token.customer._id) {
+                points = Math.floor(price / 100);
                 if (points > 0) {
 
                     await User.findByIdAndUpdate(
@@ -355,8 +405,67 @@ exports.updateTokenStatus = async (req, res, next) => {
                         });
                         loyalty.updateTier();
                         await loyalty.save();
+
+                        totalPointsInfo = loyalty.totalPoints;
+                        currentTierInfo = loyalty.tier || 'bronze';
                     }
                 }
+
+                // Fix 4 & 5: Notifications & Emails (Fire and forget)
+                try {
+                    sendNotification({
+                        user: token.customer._id,
+                        title: 'Service Completed',
+                        message: `🎉 You earned ${points} loyalty points for your ${service.name} visit! Your total is now ${totalPointsInfo} points.`,
+                        type: 'general',
+                        link: '/customer/loyalty'
+                    }).catch(err => console.error('Notification Error:', err));
+                } catch (e) { console.error('Notification trigger error:', e); }
+
+                try {
+                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                    const userDoc = await User.findById(token.customer._id);
+                    const staffDoc = token.staff ? await User.findById(token.staff) : null;
+
+                    if (userDoc && userDoc.email) {
+                        const { getPostServiceEmail, getInvoiceEmail } = require('../utils/emailTemplates');
+                        const emailHtml = getPostServiceEmail({
+                            customerName: token.isWalkIn ? token.customerName : userDoc.name,
+                            serviceName: service.name,
+                            staffName: staffDoc ? staffDoc.name : 'No Preference',
+                            pointsEarned: points,
+                            totalPoints: totalPointsInfo,
+                            currentTier: currentTierInfo,
+                            feedbackUrl: `${frontendUrl}/feedback/${token._id}`
+                        });
+
+                        sendEmail({
+                            email: userDoc.email,
+                            subject: `Thank you for visiting Mercy Salon!`,
+                            html: emailHtml
+                        }).catch(err => console.error('Email error:', err));
+
+                        // Send E-Bill Invoice Email
+                        const invoiceHtml = getInvoiceEmail({
+                            customerName: token.isWalkIn ? token.customerName : userDoc.name,
+                            tokenNumber: token.tokenNumber,
+                            date: new Date(token.date).toDateString(),
+                            timeSlot: token.timeSlot,
+                            serviceName: service.name,
+                            basePrice: service.price || 0,
+                            addOns: token.addOnServices || [],
+                            totalAmount: price,
+                            paymentMethod: finalMethod,
+                            staffName: staffDoc ? staffDoc.name : 'Any Available'
+                        });
+
+                        sendEmail({
+                            email: userDoc.email,
+                            subject: `Invoice for your visit - Mercy Salon (Token ${token.tokenNumber})`,
+                            html: invoiceHtml
+                        }).catch(err => console.error('Invoice Email error:', err));
+                    }
+                } catch (e) { console.error('Post-service email error:', e); }
             }
         }
 
@@ -416,6 +525,7 @@ exports.rescheduleToken = async (req, res, next) => {
             customer: req.user._id, date: new Date(date), timeSlot,
             status: { $in: ['waiting', 'serving'] }, _id: { $ne: token._id }
         });
+
         if (conflict) return res.status(400).json({ success: false, message: 'Slot already booked' });
 
         token.rescheduledFrom = token._id;
@@ -428,6 +538,52 @@ exports.rescheduleToken = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+};
+
+// @desc   Update arrival status
+// @route  PATCH /api/tokens/:id/arrival
+// @access Private (customer)
+exports.updateArrivalStatus = async (req, res, next) => {
+    try {
+        const token = await Token.findById(req.params.id)
+            .populate('customer', 'name')
+            .populate('service', 'name');
+
+        if (!token) return res.status(404).json({ success: false, message: 'Token not found' });
+
+        if (token.customer && token.customer._id.toString() !== req.user._id.toString())
+            return res.status(403).json({ success: false, message: 'Access denied' });
+
+        token.arrivalStatus = 'arrived';
+        token.status = 'arrived';
+        token.checkedInAt = new Date();
+        await token.save();
+
+        // Emit to admin and staff rooms
+        try {
+            const io = getIO();
+
+            // Rich notification to admin dashboard
+            io.to('admin:room').emit('token:customerArrived', {
+                tokenId: token._id,
+                tokenNumber: token.tokenNumber,
+                customerName: token.customer?.name || token.customerName || 'Walk-in',
+                serviceName: token.service?.name || 'Service',
+                timeSlot: token.timeSlot,
+                arrivedAt: new Date(),
+                via: req.body.distance ? 'geo' : 'manual',
+                distance: req.body.distance || null,
+                message: `${token.customer?.name || token.customerName} has arrived and is waiting in queue`
+            });
+
+            // Also update the live queue
+            io.to('queue:live').emit('queue:update');
+
+        } catch (_) { }
+
+        emitQueueUpdate();
+        res.json({ success: true, arrivalStatus: 'arrived', token });
+    } catch (err) { next(err); }
 };
 
 // @desc   QR check-in
@@ -548,14 +704,20 @@ exports.getMyAssignedTokens = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Only staff can access this route' });
         }
 
-        const { status, date } = req.query;
-        const filter = { staff: req.user._id };
+        const { status, date, type } = req.query;
+        let filter = {};
 
-        if (status) {
-            if (status === 'active') {
-                filter.status = { $in: ['waiting', 'arrived', 'serving'] };
-            } else {
-                filter.status = status;
+        if (type === 'available') {
+            filter.staff = null; // Unassigned
+            filter.status = { $in: ['waiting', 'arrived'] }; // Waiting for assignment
+        } else {
+            filter.staff = req.user._id;
+            if (status) {
+                if (status === 'active') {
+                    filter.status = { $in: ['waiting', 'arrived', 'serving'] };
+                } else {
+                    filter.status = status;
+                }
             }
         }
 
@@ -571,7 +733,7 @@ exports.getMyAssignedTokens = async (req, res, next) => {
         const tokens = await Token.find(filter)
             .sort({ status: -1, timeSlot: 1, createdAt: 1 })
             .populate('customer', 'name phone')
-            .populate('service', 'name duration');
+            .populate('service', 'name price duration'); // CRITICAL FIX: Added 'price'
 
         res.json({ success: true, tokens });
     } catch (err) {
@@ -589,21 +751,42 @@ exports.addWalkInToken = async (req, res, next) => {
         }
 
         const { customerName, phone, serviceId, staffId, date, timeSlot } = req.body;
+        console.log('Walk-in request body:', req.body);
+        console.log('Raw date from body:', date);
 
         if (!customerName || !serviceId || !date || !timeSlot) {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
-        const bookingDate = new Date(date);
+        let tokenDate;
+        if (date.includes('/')) {
+            // Handle MM/DD/YYYY format
+            const parts = date.split('/');
+            if (parts.length === 3) {
+                // Convert to YYYY-MM-DD
+                const normalized = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                tokenDate = new Date(normalized + 'T00:00:00.000Z');
+            }
+        } else {
+            // Handle YYYY-MM-DD format
+            console.log('Date string used for parsing:', date + 'T00:00:00.000Z');
+            tokenDate = new Date(date + 'T00:00:00.000Z');
+        }
+
         const today = new Date(); today.setHours(0, 0, 0, 0);
 
-        if (isNaN(bookingDate) || bookingDate < today) {
-            return res.status(400).json({ success: false, message: 'Invalid or past date' });
+        console.log('Parsed tokenDate:', tokenDate);
+        console.log('Today for comparison:', today);
+        console.log('Is date NaN?', isNaN(tokenDate.getTime()));
+        console.log('Is tokenDate < today?', tokenDate < today);
+
+        if (isNaN(tokenDate.getTime()) || tokenDate < today) {
+            return res.status(400).json({ success: false, message: 'Invalid date format. Please use YYYY-MM-DD or date is in the past' });
         }
 
         // Check staff availability for this slot
         const existingTokens = await Token.find({
-            date: bookingDate,
+            date: tokenDate,
             timeSlot: timeSlot,
             status: { $in: ['waiting', 'arrived', 'serving'] }
         });
@@ -621,16 +804,16 @@ exports.addWalkInToken = async (req, res, next) => {
         }
 
         // Generate token number
-        const dateStr = bookingDate.toISOString().split('T')[0].replace(/-/g, '');
+        const dateStr = tokenDate.toISOString().split('T')[0].replace(/-/g, '');
         const countToday = await Token.countDocuments({
             date: {
-                $gte: bookingDate,
-                $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000)
+                $gte: tokenDate,
+                $lt: new Date(tokenDate.getTime() + 24 * 60 * 60 * 1000)
             }
         });
         const tokenNumber = `WALK-${dateStr}-${(countToday + 1).toString().padStart(3, '0')}`;
 
-        const position = await getQueuePosition(serviceId);
+        const position = await getQueuePosition(serviceId, tokenDate);
         const qrToken = generateQRToken();
         const qrCodeDataUrl = await generateQRCode(qrToken);
 
@@ -641,13 +824,13 @@ exports.addWalkInToken = async (req, res, next) => {
             phone: phone || '',
             service: serviceId,
             staff: staffId || null,
-            date: bookingDate,
+            date: tokenDate,
             timeSlot,
             status: 'waiting',
             position,
             qrToken,
             qrCode: qrCodeDataUrl,
-            estimatedWaitTime: await predictWaitingTime(serviceId)
+            estimatedWaitTime: await predictWaitingTime(serviceId, 1, tokenDate)
         });
 
         const tokenData = await Token.findById(token._id)
@@ -668,7 +851,7 @@ exports.addWalkInToken = async (req, res, next) => {
                         tokenNumber: tokenNumber,
                         serviceName: service.name,
                         staffName: tokenData.staff ? tokenData.staff.name : 'No Preference',
-                        date: bookingDate.toDateString(),
+                        date: tokenDate.toDateString(),
                         timeSlot: timeSlot,
                         qrCodeDataUrl: qrCodeBase64,
                         frontendUrl: frontendUrl
@@ -693,4 +876,75 @@ exports.addWalkInToken = async (req, res, next) => {
         }
         next(err);
     }
+};
+
+// @desc   Add an add-on service to an active token
+// @route  POST /api/tokens/:id/addons
+// @access Private
+exports.addAddOnService = async (req, res, next) => {
+    try {
+        const { serviceId } = req.body;
+        if (!serviceId) {
+            return res.status(400).json({ success: false, message: 'Service ID is required' });
+        }
+
+        const token = await Token.findById(req.params.id).populate('service');
+        if (!token) {
+            return res.status(404).json({ success: false, message: 'Token not found' });
+        }
+
+        if (!['waiting', 'arrived', 'serving'].includes(token.status)) {
+            return res.status(400).json({ success: false, message: 'Cannot add services to this token at its current status' });
+        }
+
+        const addonService = await Service.findById(serviceId);
+        if (!addonService || !addonService.isActive) {
+            return res.status(404).json({ success: false, message: 'Add-on service not found or inactive' });
+        }
+
+        token.addOnServices.push({
+            service: addonService._id,
+            price: addonService.price,
+            addedBy: req.user._id
+        });
+
+        // Recalculate total amount
+        const basePrice = token.service?.price || 0;
+        const addonsTotal = token.addOnServices.reduce((sum, item) => sum + (item.price || 0), 0);
+        token.totalAmount = basePrice + addonsTotal;
+
+        await token.save();
+
+        const updatedToken = await Token.findById(token._id)
+            .populate('service', 'name price duration')
+            .populate('staff', 'name')
+            .populate('customer', 'name phone')
+            .populate('addOnServices.service', 'name price');
+
+        emitQueueUpdate();
+
+        res.status(200).json({ success: true, token: updatedToken });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// @desc   Accept unassigned token (staff)
+// @route  PATCH /api/tokens/:id/accept
+// @access Private (staff, admin)
+exports.acceptToken = async (req, res, next) => {
+    try {
+        const token = await Token.findById(req.params.id);
+        if (!token) return res.status(404).json({ success: false, message: 'Token not found' });
+
+        if (token.staff) {
+            return res.status(400).json({ success: false, message: 'Token already assigned to another staff member' });
+        }
+
+        token.staff = req.user._id;
+        await token.save();
+
+        emitQueueUpdate();
+        res.json({ success: true, message: 'Token accepted successfully', token });
+    } catch (err) { next(err); }
 };

@@ -86,7 +86,10 @@ const WalkInModal = ({ isOpen, onClose, onSuccess }) => {
 
         setSubmitting(true);
         try {
-            const res = await api.post('/tokens/walkin', formData);
+            const normalizedDate = new Date(formData.date).toISOString().split('T')[0];
+            const payload = { ...formData, date: normalizedDate };
+
+            const res = await api.post('/tokens/walkin', payload);
             toast.success(`Walk-in added! Token: ${res.data.token.tokenNumber}`, { duration: 5000 });
             if (onSuccess) onSuccess();
             onClose();

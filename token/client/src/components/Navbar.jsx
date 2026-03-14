@@ -65,7 +65,7 @@ const Navbar = () => {
             zIndex: 100
         }}>
             <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '1.5rem', color: 'var(--primary)', fontFamily: 'Outfit' }}>
+                <Link to={isAuthenticated && user ? (user.role === 'admin' ? '/admin/dashboard' : user.role === 'staff' ? '/staff/dashboard' : '/dashboard') : '/'} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '1.5rem', color: 'var(--primary)', fontFamily: 'Outfit' }}>
                     <Ticket size={28} />
                     TOQN
                 </Link>

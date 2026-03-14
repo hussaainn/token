@@ -17,9 +17,12 @@ router.get('/', protect, authorize('admin', 'staff'), getAllTokens);
 router.post('/walkin', protect, authorize('admin', 'staff'), require('../controllers/tokenController').addWalkInToken);
 router.post('/', protect, authorize('customer'), bookToken);
 router.get('/:id', protect, getToken);
+router.post('/:id/addons', protect, authorize('admin', 'staff', 'customer'), require('../controllers/tokenController').addAddOnService);
 router.patch('/:id/status', protect, authorize('admin', 'staff'), updateTokenStatus);
 router.patch('/:id/cancel', protect, cancelToken);
 router.patch('/:id/reschedule', protect, authorize('customer'), rescheduleToken);
+router.patch('/:id/arrival', protect, authorize('customer'), require('../controllers/tokenController').updateArrivalStatus);
+router.patch('/:id/accept', protect, authorize('admin', 'staff'), require('../controllers/tokenController').acceptToken);
 router.post('/call-next', protect, authorize('admin', 'staff'), callNext);
 
 module.exports = router;

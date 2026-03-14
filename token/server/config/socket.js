@@ -5,8 +5,13 @@ const initSocket = (server) => {
     const { Server } = require('socket.io');
     io = new Server(server, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:5173',
+            origin: [
+                'http://localhost:5173',
+                'http://localhost:3000',
+                'http://172.20.10.2:5173'
+            ],
             methods: ['GET', 'POST'],
+            credentials: true
         },
     });
 
@@ -33,6 +38,12 @@ const initSocket = (server) => {
 
         socket.on('join:admin', () => {
             socket.join('admin:room');
+            console.log(`🛡️ Admin joined admin:room — ${socket.id}`);
+        });
+
+        // Customer sends 'on my way' notification
+        socket.on('customer:onway', (data) => {
+            io.to('admin:room').emit('customer:onway', data);
         });
 
         socket.on('disconnect', () => {

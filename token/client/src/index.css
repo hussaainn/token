@@ -1,0 +1,141 @@
+
+/* ============================================
+   MOBILE ONLY — max-width: 768px
+   Desktop styles are completely untouched
+   ============================================ */
+
+@media (max-width: 768px) {
+
+  /* Prevent zoom on input focus — iOS Safari fix */
+  input, select, textarea, button {
+    font-size: 16px !important;
+  }
+
+  /* iPhone notch / safe area */
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Fix 100vh on mobile Safari */
+  .loading-screen {
+    min-height: -webkit-fill-available;
+  }
+
+  /* Smooth scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Tap targets */
+  .btn, button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Cards full width on mobile */
+  .card {
+    border-radius: 12px;
+    padding: 1rem;
+    overflow-x: hidden;
+  }
+
+  /* Grid overrides — stack everything on mobile */
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Section headers stack on mobile */
+  .section-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+
+  /* Tables scroll horizontally */
+  .table-wrapper, table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* Page padding on mobile */
+  .fade-in {
+    padding: 1rem !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Modals — slide up from bottom on iPhone */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    position: relative !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Stat cards side by side on mobile (2 per row) */
+  .stat-card {
+    padding: 1rem !important;
+  }
+
+  .stat-card h1 {
+    font-size: 1.8rem !important;
+  }
+
+  /* Navbar collapse on mobile */
+  .navbar {
+    padding: 0.75rem 1rem !important;
+  }
+
+  .navbar-links {
+    display: none !important;
+  }
+
+  /* Hide admin sidebar on mobile */
+  aside {
+    display: none !important;
+  }
+
+  /* Remove sidebar margin on mobile */
+  main {
+    margin-left: 0 !important;
+    padding: 1rem !important;
+  }
+
+  /* Charts full width */
+  .recharts-wrapper {
+    width: 100% !important;
+  }
+
+  /* Form inputs full width */
+  .form-group, .form-control, input, select, textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Action cards stack */
+  .action-card {
+    width: 100% !important;
+  }
+
+  /* Hide non-essential columns in tables on mobile */
+  table th:nth-child(n+4),
+  table td:nth-child(n+4) {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .admin-mobile-header-wrapper {
+    display: none !important;
+  }
+}

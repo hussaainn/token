@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
         fcmToken: { type: String, default: '' },
         webPushSubscription: { type: Object, default: null },
         loyaltyPoints: { type: Number, default: 0 },
+        loyaltyTier: { type: String, enum: ['bronze', 'silver', 'gold', 'platinum'], default: 'bronze' },
         specialization: { type: String, default: '' }, // for staff
         refreshToken: { type: String },
         resetPasswordToken: { type: String },

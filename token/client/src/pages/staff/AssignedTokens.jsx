@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -8,13 +9,19 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import WalkInModal from '../../components/WalkInModal';
+import PaymentModal from '../../components/PaymentModal';
+import AddServiceModal from '../../components/AddServiceModal';
+import { Plus } from 'lucide-react';
 
 const AssignedTokens = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState('active'); // active, history
+    const [view, setView] = useState('available'); // available, my-active, history
     const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+    const [selectedTokenForPayment, setSelectedTokenForPayment] = useState(null);
+    const [selectedTokenForAddOn, setSelectedTokenForAddOn] = useState(null);
     const { socket } = useSocket();
+    const { user } = useAuth();
 
     useEffect(() => {
         fetchMyTokens();
@@ -29,8 +36,12 @@ const AssignedTokens = () => {
 
     const fetchMyTokens = async () => {
         try {
-            // Endpoint for staff assigned tokens
-            const res = await api.get(`/tokens/my-assigned?status=${view === 'active' ? 'active' : 'completed'}`);
+            let url = '';
+            if (view === 'available') url = '/tokens/my-assigned?type=available';
+            else if (view === 'my-active') url = '/tokens/my-assigned?type=assigned&status=active';
+            else url = '/tokens/my-assigned?type=assigned&status=completed';
+
+            const res = await api.get(url);
             setTokens(res.data.tokens);
         } catch (err) {
             toast.error('Failed to load your tokens');
@@ -49,6 +60,27 @@ const AssignedTokens = () => {
         }
     };
 
+    const handlePaymentComplete = async (tokenId, data) => {
+        try {
+            await api.patch(`/tokens/${tokenId}/status`, data);
+            toast.success('Token marked as completed with payment');
+            fetchMyTokens();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Payment update failed');
+        }
+    };
+
+    const handleAcceptToken = async (tokenId) => {
+        try {
+            await api.patch(`/tokens/${tokenId}/accept`);
+            toast.success('Customer accepted successfully!');
+            setView('my-active');
+            // Fetch is handled by socket, or we could call fetchMyTokens() here but setView triggers it
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to accept token');
+        }
+    };
+
     const handleCallNext = async () => {
         try {
             const res = await api.post('/tokens/call-next');
@@ -59,22 +91,79 @@ const AssignedTokens = () => {
         }
     };
 
+    const handleOpenPayment = async (token) => {
+        try {
+            const res = await api.get(`/tokens/${token._id}`);
+            setSelectedTokenForPayment(res.data.token);
+        } catch (err) {
+            console.error('Failed to fetch token details:', err);
+            // Fallback to original token
+            setSelectedTokenForPayment(token);
+        }
+    };
+
     if (loading) return <div className="loading-screen"><div className="spinner"></div></div>;
 
     return (
         <div className="fade-in">
-            <div className="section-header">
-                <div>
-                    <h2 className="section-title">My Assigned Tokens</h2>
-                    <p style={{ color: 'var(--text-secondary)' }}>Manage your scheduled and active clients</p>
+            <div style={{ marginBottom: '2rem' }}>
+                <div className="card" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #8b85ff 100%)', color: '#fff', border: 'none' }}>
+                    <h2 style={{ color: '#fff', marginBottom: '0.5rem' }}>Welcome back, {user?.name}! 👋</h2>
+                    <p style={{ opacity: 0.9, margin: 0 }}>Manage your scheduled and active clients. Check the pool to accept new walk-ins.</p>
                 </div>
+            </div>
+
+            <h3 style={{ marginBottom: '1rem' }}>Quick Actions</h3>
+            <div className="grid-2" style={{ marginBottom: '2rem' }}>
+                <button
+                    onClick={() => setIsWalkInModalOpen(true)}
+                    className="card action-card" style={{
+                        display: 'flex', alignItems: 'center', gap: '1rem',
+                        background: 'linear-gradient(135deg, var(--success) 0%, #22c55e 100%)',
+                        color: '#fff', padding: '1.5rem', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%'
+                    }}>
+                    <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.75rem', borderRadius: '1rem' }}>
+                        <UserPlus size={24} />
+                    </div>
+                    <div>
+                        <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem' }}>Generate Walk-in</h4>
+                        <p style={{ margin: '0.25rem 0 0', opacity: 0.9, fontSize: '0.85rem' }}>Add a new client</p>
+                    </div>
+                </button>
+
+                <button
+                    onClick={handleCallNext}
+                    className="card action-card" style={{
+                        display: 'flex', alignItems: 'center', gap: '1rem',
+                        background: 'linear-gradient(135deg, var(--warning) 0%, #facc15 100%)',
+                        color: '#fff', padding: '1.5rem', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%'
+                    }}>
+                    <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.75rem', borderRadius: '1rem' }}>
+                        <Play size={24} />
+                    </div>
+                    <div>
+                        <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem' }}>Call Next Customer</h4>
+                        <p style={{ margin: '0.25rem 0 0', opacity: 0.9, fontSize: '0.85rem' }}>Automated next-in-line</p>
+                    </div>
+                </button>
+            </div>
+
+            <div className="section-header" style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0 }}>Assigned Tokens</h3>
                 <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: 'var(--radius-sm)' }}>
                     <button
-                        className={`btn btn-sm ${view === 'active' ? 'btn-primary' : ''}`}
-                        style={{ border: 'none', background: view === 'active' ? 'var(--primary)' : 'transparent', color: view === 'active' ? '#fff' : 'var(--text)' }}
-                        onClick={() => setView('active')}
+                        className={`btn btn-sm ${view === 'available' ? 'btn-primary' : ''}`}
+                        style={{ border: 'none', background: view === 'available' ? 'var(--primary)' : 'transparent', color: view === 'available' ? '#fff' : 'var(--text)' }}
+                        onClick={() => setView('available')}
                     >
-                        In Progress
+                        Available Pool
+                    </button>
+                    <button
+                        className={`btn btn-sm ${view === 'my-active' ? 'btn-primary' : ''}`}
+                        style={{ border: 'none', background: view === 'my-active' ? 'var(--primary)' : 'transparent', color: view === 'my-active' ? '#fff' : 'var(--text)' }}
+                        onClick={() => setView('my-active')}
+                    >
+                        My Active
                     </button>
                     <button
                         className={`btn btn-sm ${view === 'history' ? 'btn-primary' : ''}`}
@@ -82,14 +171,6 @@ const AssignedTokens = () => {
                         onClick={() => setView('history')}
                     >
                         History
-                    </button>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => setIsWalkInModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--success)' }}>
-                        <UserPlus size={16} /> Add Walk-in
-                    </button>
-                    <button className="btn btn-primary btn-sm" onClick={handleCallNext}>
-                        <Play size={16} style={{ marginRight: '6px' }} /> Call Next Customer
                     </button>
                 </div>
             </div>
@@ -107,15 +188,20 @@ const AssignedTokens = () => {
 
                                     <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <h3 style={{ margin: 0 }}>{token.customer.name}</h3>
+                                            <h3 style={{ margin: 0 }}>{token.customer?.name || token.customerName || 'Walk-in Customer'}</h3>
                                             {token.arrivalStatus === 'arrived' && (
                                                 <span className="badge badge-arrived" style={{ fontSize: '0.7rem' }}>ARRIVED</span>
                                             )}
                                         </div>
                                         <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'flex', gap: '1rem' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Ticket size={14} /> {token.service.name}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Ticket size={14} /> {token.service?.name || 'Unknown Service'}</span>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {token.timeSlot}</span>
                                         </div>
+                                        {token.addOnServices && token.addOnServices.length > 0 && (
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.25rem' }}>
+                                                + {token.addOnServices.length} Add-on(s) (₹{token.addOnServices.reduce((sum, item) => sum + (item.price || 0), 0)})
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -128,29 +214,49 @@ const AssignedTokens = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        {token.status === 'waiting' && (
+                                        {view === 'available' ? (
                                             <button
                                                 className="btn btn-primary"
-                                                onClick={() => handleStatusUpdate(token._id, 'serving')}
+                                                onClick={() => handleAcceptToken(token._id)}
+                                                style={{ background: 'var(--success)', borderColor: 'var(--success)' }}
                                             >
-                                                <Play size={18} style={{ marginRight: '6px' }} /> Start Service
+                                                <UserPlus size={18} style={{ marginRight: '6px' }} /> Accept Customer
                                             </button>
-                                        )}
-                                        {token.status === 'serving' && (
-                                            <button
-                                                className="btn btn-success"
-                                                onClick={() => handleStatusUpdate(token._id, 'completed')}
-                                            >
-                                                <CheckCircle size={18} style={{ marginRight: '6px' }} /> Complete
-                                            </button>
-                                        )}
-                                        {token.status === 'arrived' && (
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={() => handleStatusUpdate(token._id, 'serving')}
-                                            >
-                                                <Play size={18} style={{ marginRight: '6px' }} /> Start Service
-                                            </button>
+                                        ) : (
+                                            <>
+                                                {token.status === 'waiting' && (
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        onClick={() => handleStatusUpdate(token._id, 'serving')}
+                                                    >
+                                                        <Play size={18} style={{ marginRight: '6px' }} /> Start Service
+                                                    </button>
+                                                )}
+                                                {token.status === 'serving' && (
+                                                    <button
+                                                        className="btn btn-success"
+                                                        onClick={() => handleOpenPayment(token)}
+                                                    >
+                                                        <CheckCircle size={18} style={{ marginRight: '6px' }} /> Complete
+                                                    </button>
+                                                )}
+                                                <button
+                                                    className="btn btn-outline-primary"
+                                                    onClick={() => setSelectedTokenForAddOn(token)}
+                                                    title="Add Service"
+                                                    style={{ padding: '0.5rem 0.75rem' }}
+                                                >
+                                                    <Plus size={18} />
+                                                </button>
+                                                {token.status === 'arrived' && (
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        onClick={() => handleStatusUpdate(token._id, 'serving')}
+                                                    >
+                                                        <Play size={18} style={{ marginRight: '6px' }} /> Start Service
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -168,7 +274,7 @@ const AssignedTokens = () => {
                     <div className="empty-state card">
                         <User className="empty-state-icon" />
                         <h3>No Tokens Found</h3>
-                        <p>You don't have any {view === 'active' ? 'active' : 'completed'} tokens assigned.</p>
+                        <p>There are no tokens matching this view.</p>
                     </div>
                 )}
             </div>
@@ -178,6 +284,24 @@ const AssignedTokens = () => {
                 onClose={() => setIsWalkInModalOpen(false)}
                 onSuccess={fetchMyTokens}
             />
+
+            {selectedTokenForPayment && (
+                <PaymentModal
+                    isOpen={!!selectedTokenForPayment}
+                    onClose={() => setSelectedTokenForPayment(null)}
+                    token={selectedTokenForPayment}
+                    onComplete={handlePaymentComplete}
+                />
+            )}
+
+            {selectedTokenForAddOn && (
+                <AddServiceModal
+                    isOpen={!!selectedTokenForAddOn}
+                    onClose={() => setSelectedTokenForAddOn(null)}
+                    token={selectedTokenForAddOn}
+                    onSuccess={fetchMyTokens}
+                />
+            )}
         </div>
     );
 };

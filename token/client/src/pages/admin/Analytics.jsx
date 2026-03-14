@@ -16,18 +16,24 @@ const Analytics = () => {
     const [staffRatings, setStaffRatings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState('7d');
+    const [leaderboard, setLeaderboard] = useState([]);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
-                const [resData, resReviews] = await Promise.all([
+                const [resData, resReviews, resLoyalty] = await Promise.all([
                     api.get(`/admin/dashboard?range=${dateRange}`),
-                    api.get(`/reviews`)
+                    api.get(`/reviews`),
+                    api.get('/loyalty/leaderboard')
                 ]);
                 setData(resData.data);
 
                 const allReviews = resReviews.data.reviews || [];
                 setReviews(allReviews);
+
+                if (resLoyalty.data.success) {
+                    setLeaderboard(resLoyalty.data.leaderboard);
+                }
 
                 // Calculate average rating per staff member
                 const sRates = {};
@@ -189,6 +195,56 @@ const Analytics = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* 🔥 NEW LOYALTY OVERVIEW SECTION */}
+            <div className="card" style={{ marginTop: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>★</div>
+                    <h3 style={{ margin: 0 }}>Loyalty Leaderboard (Top Customers)</h3>
+                </div>
+
+                {leaderboard && leaderboard.length > 0 ? (
+                    <div className="table-responsive">
+                        <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                                    <th style={{ padding: '1rem', fontWeight: 600, fontSize: '0.85rem' }}>Rank</th>
+                                    <th style={{ padding: '1rem', fontWeight: 600, fontSize: '0.85rem' }}>Customer</th>
+                                    <th style={{ padding: '1rem', fontWeight: 600, fontSize: '0.85rem' }}>Tier</th>
+                                    <th style={{ padding: '1rem', fontWeight: 600, fontSize: '0.85rem' }}>Current Points</th>
+                                    <th style={{ padding: '1rem', fontWeight: 600, fontSize: '0.85rem' }}>Lifetime Earned</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {leaderboard.map((loyalty, index) => (
+                                    <tr key={loyalty._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <td style={{ padding: '1rem', fontWeight: 700 }}>#{index + 1}</td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <div style={{ fontWeight: 600 }}>{loyalty.customer?.name || 'Unknown'}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{loyalty.customer?.email || ''}</div>
+                                        </td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <span style={{
+                                                padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600,
+                                                background: loyalty.tier === 'gold' ? '#fff9e6' : loyalty.tier === 'silver' ? '#f1f5f9' : '#fce7f3',
+                                                color: loyalty.tier === 'gold' ? '#d97706' : loyalty.tier === 'silver' ? '#64748b' : 'var(--primary)'
+                                            }}>
+                                                {(loyalty.tier || 'bronze').toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--primary)' }}>{loyalty.totalPoints}</td>
+                                        <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{loyalty.lifetimeEarned}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="empty-state">
+                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No loyalty data available.</p>
+                    </div>
+                )}
             </div>
 
             {/* 🔥 NEW FEEDBACK SECTION */}

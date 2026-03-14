@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const { initSocket } = require('./config/socket');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { startAppointmentChecker } = require('./utils/appointmentChecker');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -21,7 +22,9 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 
 // Connect DB
-connectDB();
+connectDB().then(() => {
+  startAppointmentChecker();
+}).catch(console.error);
 
 const app = express();
 const server = http.createServer(app);
@@ -31,7 +34,18 @@ initSocket(server);
 
 // Security Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://172.20.10.2:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: 'Too many requests, please try again later' });
@@ -41,8 +55,9 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// Health check & Ping
 app.get('/health', (req, res) => res.json({ status: 'OK', app: 'TOQN - Mercy Salon', timestamp: new Date() }));
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
 
 // API Routes
 app.use('/api/auth', authRoutes);

@@ -147,7 +147,7 @@ const Reviews = () => {
                                                 <Ticket size={20} />
                                             </div>
                                             <div>
-                                                <p style={{ fontWeight: 700 }}>{token.service.name}</p>
+                                                <p style={{ fontWeight: 700 }}>{token.service?.name || 'Unknown Service'}</p>
                                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Completed on {format(new Date(token.date), 'MMM dd')}</p>
                                             </div>
                                         </div>

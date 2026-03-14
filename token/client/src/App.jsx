@@ -21,12 +21,17 @@ const Reviews = lazy(() => import('./pages/customer/Reviews'));
 const Reschedule = lazy(() => import('./pages/customer/Reschedule'));
 
 // Admin
+const AdminMobileHeader = lazy(() => import('./components/AdminMobileHeader'));
+const AdminSidebar = lazy(() => import('./components/AdminSidebar'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const StaffMgmt = lazy(() => import('./pages/admin/StaffMgmt'));
 const ServicesMgmt = lazy(() => import('./pages/admin/ServicesMgmt'));
 const QueueControl = lazy(() => import('./pages/admin/QueueControl'));
 const Analytics = lazy(() => import('./pages/admin/Analytics'));
 const CheckIn = lazy(() => import('./pages/admin/CheckIn'));
+const CustomerHistory = lazy(() => import('./pages/admin/CustomerHistory'));
+const TodayServices = lazy(() => import('./pages/admin/TodayServices'));
+const Feedback = lazy(() => import('./pages/admin/Feedback'));
 
 // Staff
 const AssignedTokens = lazy(() => import('./pages/staff/AssignedTokens'));
@@ -42,11 +47,24 @@ const PageLoader = () => (
 );
 
 const App = () => {
+  const AdminLayout = ({ children }) => (
+    <div style={{ display: 'flex' }}>
+      <Suspense fallback={null}><AdminSidebar /></Suspense>
+      <main style={{ marginLeft: '220px', flex: 1, padding: '2rem', minHeight: '100vh', background: 'var(--bg)' }}>
+        <div className="admin-mobile-header-wrapper">
+          <Suspense fallback={null}><AdminMobileHeader /></Suspense>
+        </div>
+        {children}
+      </main>
+    </div>
+  );
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="dashboard" element={<Navigate to="/" replace />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
@@ -77,12 +95,15 @@ const App = () => {
             element={
               <ProtectedRoute roles={['admin']}>
                 <Routes>
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="staff" element={<StaffMgmt />} />
-                  <Route path="services" element={<ServicesMgmt />} />
-                  <Route path="queue" element={<QueueControl />} />
-                  <Route path="analytics" element={<Analytics />} />
-                  <Route path="check-in" element={<CheckIn />} />
+                  <Route path="dashboard" element={<AdminLayout><AdminDashboard /></AdminLayout>} />
+                  <Route path="staff" element={<AdminLayout><StaffMgmt /></AdminLayout>} />
+                  <Route path="services" element={<AdminLayout><ServicesMgmt /></AdminLayout>} />
+                  <Route path="queue" element={<AdminLayout><QueueControl /></AdminLayout>} />
+                  <Route path="analytics" element={<AdminLayout><Analytics /></AdminLayout>} />
+                  <Route path="check-in" element={<AdminLayout><CheckIn /></AdminLayout>} />
+                  <Route path="history" element={<AdminLayout><CustomerHistory /></AdminLayout>} />
+                  <Route path="today" element={<AdminLayout><TodayServices /></AdminLayout>} />
+                  <Route path="feedback" element={<AdminLayout><Feedback /></AdminLayout>} />
                   <Route path="*" element={<Navigate to="/404" replace />} />
                 </Routes>
               </ProtectedRoute>
@@ -95,6 +116,7 @@ const App = () => {
             element={
               <ProtectedRoute roles={['staff']}>
                 <Routes>
+                  <Route path="dashboard" element={<Navigate to="/staff/tokens" replace />} />
                   <Route path="tokens" element={<AssignedTokens />} />
                   <Route path="check-in" element={<CheckIn />} />
                   <Route path="*" element={<Navigate to="/404" replace />} />

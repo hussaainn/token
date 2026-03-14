@@ -50,7 +50,7 @@ const Reschedule = () => {
 
             <div className="card">
                 <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', marginBottom: '2rem' }}>
-                    <h4 style={{ marginBottom: '0.25rem' }}>{token.service.name}</h4>
+                    <h4 style={{ marginBottom: '0.25rem' }}>{token.service?.name || 'Unknown Service'}</h4>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                         Current: {format(new Date(token.date), 'MMM dd, yyyy')} at {token.timeSlot}
                     </p>

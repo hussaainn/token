@@ -26,6 +26,13 @@ const tokenSchema = new mongoose.Schema(
         position: { type: Number, default: 0 },
         estimatedWaitTime: { type: Number, default: 0 }, // minutes
         notes: { type: String, default: '' },
+        addOnServices: [{
+            service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+            price: { type: Number },
+            addedAt: { type: Date, default: Date.now },
+            addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+        }],
+        totalAmount: { type: Number, default: 0 },
         checkedInAt: { type: Date, default: null },
         startedAt: { type: Date, default: null },
         completedAt: { type: Date, default: null },

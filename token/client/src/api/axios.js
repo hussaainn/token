@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: 'http://172.20.10.2:4000/api',
     withCredentials: true,
 });
 
@@ -21,10 +21,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
+        // Logging the actual error payload
+        console.error('API ERROR URL:', error.config?.url);
+        console.error('API ERROR STATUS:', error.response?.status);
+        console.error('API ERROR DATA:', error.response?.data);
+        console.error('API ERROR MESSAGE:', error.message);
+
         const originalRequest = error.config;
 
         // Handle 401 Unauthorized errors
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // Skip refresh attempt if this is the login request itself
+            if (originalRequest.url?.includes('/auth/login')) {
+                return Promise.reject(error);
+            }
+
             originalRequest._retry = true;
             try {
                 const refreshToken = localStorage.getItem('toqn_refresh_token');

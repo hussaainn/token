@@ -13,18 +13,23 @@ const Service = require('../models/Service');
  * - Staff count
  * - Historical averages
  */
-const predictWaitingTime = async (serviceId, staffCount = 1) => {
+const predictWaitingTime = async (serviceId, staffCount = 1, date = new Date()) => {
     try {
         const service = await Service.findById(serviceId);
         if (!service) return 30; // default fallback
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        let safeDate;
+        if (typeof date === 'string' && !date.includes('T')) {
+            safeDate = new Date(date + 'T00:00:00.000Z');
+        } else {
+            safeDate = new Date(date);
+        }
+        safeDate.setHours(0, 0, 0, 0);
 
         // Count tokens ahead in queue today
         const queueAhead = await Token.countDocuments({
             status: { $in: ['waiting', 'serving'] },
-            date: { $gte: today },
+            date: { $gte: safeDate },
         });
 
         // Historical average service time (from completed tokens)
@@ -60,16 +65,22 @@ const predictWaitingTime = async (serviceId, staffCount = 1) => {
 /**
  * Get queue position for a token
  */
-const getQueuePosition = async (tokenDate, tokenCreatedAt) => {
-    const today = new Date(tokenDate);
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
+const getQueuePosition = async (serviceId, date) => {
+    let safeDate;
+    if (typeof date === 'string' && !date.includes('T')) {
+        safeDate = new Date(date + 'T00:00:00.000Z');
+    } else {
+        safeDate = new Date(date);
+    }
+
+    safeDate.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(safeDate);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const position = await Token.countDocuments({
-        date: { $gte: today, $lt: tomorrow },
+        service: serviceId,
+        date: { $gte: safeDate, $lt: tomorrow },
         status: 'waiting',
-        createdAt: { $lt: tokenCreatedAt },
     });
     return position + 1;
 };

@@ -64,11 +64,9 @@ const Login = () => {
             }
 
         } catch (err) {
-            if (!err.response) {
-                toast.error('Network error. Please check your connection.');
-            } else {
-                toast.error(err.response.data?.message || 'Login failed');
-            }
+            console.error('Login failed:', err);
+            const msg = err.response?.data?.message || err.message || 'Network error occurred. Please check your connection.';
+            toast.error(msg);
         } finally {
             setIsSubmitting(false);
         }

@@ -129,20 +129,19 @@ exports.getDashboard = async (req, res, next) => {
 
         ]);
 
-        const tokenCounts = tokenCountsAggregate[0] || { total: 0, waiting: 0, active: 0, completed: 0, cancelled: 0 };
-        const revenue = revenueAggregate[0] || { total: 0 };
-
+        const totals = tokenCountsAggregate.length > 0 ? tokenCountsAggregate[0] : { total: 0, waiting: 0, active: 0, completed: 0, cancelled: 0 };
         res.json({
             success: true,
             stats: {
-                totalTokensToday: tokenCounts.total,
-                waitingTokens: tokenCounts.waiting,
-                activeTokens: tokenCounts.active,
-                completedToday: tokenCounts.completed,
-                cancelledToday: tokenCounts.cancelled,
+                totalTokensToday: totals.total,
+                completedToday: totals.completed,
+                activeTokens: totals.active,
+                waitingTokens: totals.waiting,
+                cancelledToday: totals.cancelled,
+                noShowToday: totals.cancelled, // Mapping for front-end analytics
                 totalCustomers,
                 totalStaff,
-                revenueToday: revenue.total,
+                revenueToday: revenueAggregate.length > 0 ? revenueAggregate[0].total : 0
             },
             topServices,
             hourlyDistribution,
@@ -376,6 +375,67 @@ exports.getCustomers = async (req, res, next) => {
             count: customers.length,
             customers
         });
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+
+// ===============================
+// @desc   Get customer history (with payments)
+// @route  GET /api/admin/customer-history
+// ===============================
+exports.getCustomerHistory = async (req, res, next) => {
+    try {
+        const { date, startDate, endDate, status, isWalkIn, page = 1, limit = 20 } = req.query;
+        const filter = {};
+
+        if (status) filter.status = status;
+        if (isWalkIn !== undefined) filter.isWalkIn = isWalkIn === 'true';
+
+        if (date) {
+            const d = new Date(date); d.setHours(0, 0, 0, 0);
+            const nextDay = new Date(d); nextDay.setDate(nextDay.getDate() + 1);
+            filter.date = { $gte: d, $lt: nextDay };
+        } else if (startDate || endDate) {
+            filter.date = {};
+            if (startDate) {
+                const s = new Date(startDate); s.setHours(0, 0, 0, 0);
+                filter.date.$gte = s;
+            }
+            if (endDate) {
+                const e = new Date(endDate); e.setHours(23, 59, 59, 999);
+                filter.date.$lte = e;
+            }
+        }
+
+        const tokens = await Token.find(filter)
+            .sort({ date: -1, createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit))
+            .populate('customer', 'name email phone loyaltyPoints')
+            .populate('service', 'name price duration')
+            .populate('staff', 'name');
+
+        const total = await Token.countDocuments(filter);
+
+        const tokenIds = tokens.map(t => t._id);
+        const payments = await Payment.find({ token: { $in: tokenIds } });
+        const paymentsMap = {};
+        payments.forEach(p => { paymentsMap[p.token.toString()] = p; });
+
+        const history = tokens.map(t => {
+            const tokenObj = t.toObject();
+            const payment = paymentsMap[t._id.toString()];
+            tokenObj.paymentMethod = payment ? payment.method : null;
+            tokenObj.paymentStatus = payment ? payment.status : 'pending';
+            tokenObj.amountPaid = payment ? payment.finalAmount : 0;
+            return tokenObj;
+        });
+
+        res.json({ success: true, total, page: Number(page), limit: Number(limit), tokens: history });
 
     } catch (err) {
         next(err);

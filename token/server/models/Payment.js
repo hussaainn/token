@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const paymentSchema = new mongoose.Schema(
     {
         token: { type: mongoose.Schema.Types.ObjectId, ref: 'Token', required: true },
-        customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
+        customerName: { type: String },
+        phone: { type: String },
         service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', required: true },
         amount: { type: Number, required: true, min: 0 },
         discountApplied: { type: Number, default: 0 },

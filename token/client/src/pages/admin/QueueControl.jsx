@@ -10,7 +10,9 @@ import {
 import { format } from 'date-fns';
 import WalkInModal from '../../components/WalkInModal';
 import NotificationModal from '../../components/NotificationModal';
-import { MessageSquare } from 'lucide-react';
+import PaymentModal from '../../components/PaymentModal';
+import AddServiceModal from '../../components/AddServiceModal';
+import { MessageSquare, Plus } from 'lucide-react';
 
 const QueueControl = () => {
     const [tokens, setTokens] = useState([]);
@@ -18,6 +20,8 @@ const QueueControl = () => {
     const [filter, setFilter] = useState('all');
     const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
     const [selectedCustomerForNotification, setSelectedCustomerForNotification] = useState(null);
+    const [selectedTokenForPayment, setSelectedTokenForPayment] = useState(null);
+    const [selectedTokenForAddOn, setSelectedTokenForAddOn] = useState(null);
     const { socket } = useSocket();
 
     useEffect(() => {
@@ -62,6 +66,16 @@ const QueueControl = () => {
         }
     };
 
+    const handlePaymentComplete = async (tokenId, data) => {
+        try {
+            await api.patch(`/tokens/${tokenId}/status`, data);
+            toast.success('Token marked as completed and payment recorded');
+            fetchActiveTokens();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Payment update failed');
+        }
+    };
+
     const handleCallNext = async () => {
         try {
             const res = await api.post('/tokens/call-next');
@@ -96,6 +110,17 @@ const QueueControl = () => {
             setSelectedCustomerForNotification(null);
         } catch (err) {
             toast.error('Failed to send notification');
+        }
+    };
+
+    const handleOpenPayment = async (token) => {
+        try {
+            const res = await api.get(`/tokens/${token._id}`);
+            setSelectedTokenForPayment(res.data.token);
+        } catch (err) {
+            console.error('Failed to fetch token details:', err);
+            // Fallback to original token
+            setSelectedTokenForPayment(token);
         }
     };
 
@@ -150,7 +175,7 @@ const QueueControl = () => {
 
                                     <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <h4 style={{ margin: 0 }}>{token.customer.name}</h4>
+                                            <h4 style={{ margin: 0 }}>{token.customer?.name || token.customerName || 'Walk-in Customer'}</h4>
                                             {token.arrivalStatus === 'arrived' && (
                                                 <span className="badge badge-arrived" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
                                                     <MapPin size={10} /> Arrived
@@ -158,8 +183,13 @@ const QueueControl = () => {
                                             )}
                                         </div>
                                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                            {token.service.name} • {token.timeSlot} • Staff: {token.staff?.name || 'Unassigned'}
+                                            {token.service?.name || 'Unknown Service'} • {token.timeSlot} • Staff: {token.staff?.name || 'No Staff Assigned'}
                                         </div>
+                                        {token.addOnServices && token.addOnServices.length > 0 && (
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.25rem' }}>
+                                                + {token.addOnServices.length} Add-on(s) (₹{token.addOnServices.reduce((sum, item) => sum + (item.price || 0), 0)})
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -198,11 +228,18 @@ const QueueControl = () => {
                                         {token.status === 'serving' && (
                                             <button
                                                 className="btn btn-success btn-sm"
-                                                onClick={() => handleStatusUpdate(token._id, 'completed')}
+                                                onClick={() => handleOpenPayment(token)}
                                             >
                                                 <CheckCircle size={16} style={{ marginRight: '6px' }} /> Finish
                                             </button>
                                         )}
+                                        <button
+                                            className="btn btn-outline-primary btn-sm"
+                                            onClick={() => setSelectedTokenForAddOn(token)}
+                                            title="Add Service"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
                                         <button
                                             className="btn btn-outline-danger btn-sm"
                                             onClick={() => handleStatusUpdate(token._id, 'cancelled')}
@@ -244,6 +281,24 @@ const QueueControl = () => {
                     onClose={() => setSelectedCustomerForNotification(null)}
                     onSend={handleSendNotification}
                     customerName={selectedCustomerForNotification.customer?.name}
+                />
+            )}
+
+            {selectedTokenForPayment && (
+                <PaymentModal
+                    isOpen={!!selectedTokenForPayment}
+                    onClose={() => setSelectedTokenForPayment(null)}
+                    token={selectedTokenForPayment}
+                    onComplete={handlePaymentComplete}
+                />
+            )}
+
+            {selectedTokenForAddOn && (
+                <AddServiceModal
+                    isOpen={!!selectedTokenForAddOn}
+                    onClose={() => setSelectedTokenForAddOn(null)}
+                    token={selectedTokenForAddOn}
+                    onSuccess={fetchActiveTokens}
                 />
             )}
         </div>

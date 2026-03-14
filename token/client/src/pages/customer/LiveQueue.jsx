@@ -51,6 +51,21 @@ const LiveQueue = () => {
     const currentlyServing = queue.filter(t => t.status === 'serving');
     const waiting = queue.filter(t => t.status === 'waiting');
 
+    const maskName = (name) => {
+        if (!name || name === 'Walk-in Customer') return 'Walk-in Customer';
+        return name.split(' ').map(part => {
+            if (part.length <= 2) return part;
+            return part[0] + '*'.repeat(part.length - 2) + part[part.length - 1];
+        }).join(' ');
+    };
+
+    const displayCustomerName = (token) => {
+        const fullName = token.customer?.name || token.customerName || 'Walk-in Customer';
+        if (['admin', 'staff'].includes(user?.role)) return fullName;
+        if (user && user._id && token.customer?._id === user._id) return fullName;
+        return maskName(fullName);
+    };
+
     return (
         <div className="fade-in">
             <div className="section-header">
@@ -77,7 +92,7 @@ const LiveQueue = () => {
                             currentlyServing.map(token => (
                                 <div key={token._id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                     <div className="badge badge-serving">{token.tokenNumber}</div>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{token.service.name}</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{token.service?.name || 'Unknown Service'}</span>
                                 </div>
                             ))
                         ) : (
@@ -111,15 +126,15 @@ const LiveQueue = () => {
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                     <span className="token-number" style={{ minWidth: 'auto', fontSize: '1.1rem' }}>{token.tokenNumber}</span>
-                                    <span style={{ fontWeight: 600 }}>{token.customer.name}</span>
+                                    <span style={{ fontWeight: 600 }}>{displayCustomerName(token)}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <Ticket size={14} /> {token.service.name}
+                                        <Ticket size={14} /> {token.service?.name || 'Unknown Service'}
                                     </span>
                                     {token.staff && (
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                            <Users size={14} /> {token.staff.name}
+                                            <Users size={14} /> {token.staff?.name || 'No Staff Assigned'}
                                         </span>
                                     )}
                                 </div>
