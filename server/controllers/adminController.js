@@ -11,57 +11,53 @@ const Review = require('../models/Review');
 // ===============================
 exports.getDashboard = async (req, res, next) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const range = req.query.range || '1d';
+        const days = parseInt(range.replace('d', '')) || 1;
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        startDate.setDate(startDate.getDate() - days + 1);
 
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
 
         const [
-            totalTokensToday,
-            activeTokens,
-            completedToday,
-            cancelledToday,
+            tokenCountsAggregate,
             totalCustomers,
             totalStaff,
-            revenueToday,
+            revenueAggregate,
             topServices,
             hourlyDistribution,
             staffPerformance,
         ] = await Promise.all([
 
-            // Tokens today
-            Token.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
+            // Single aggregation for all token counts
+            Token.aggregate([
+                { $match: { date: { $gte: startDate, $lte: endDate } } },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: 1 },
+                        waiting: { $sum: { $cond: [{ $eq: ['$status', 'waiting'] }, 1, 0] } },
+                        active: { $sum: { $cond: [{ $in: ['$status', ['waiting', 'serving']] }, 1, 0] } },
+                        completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                        cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
+                    }
+                }
+            ]),
 
-            // Active tokens
-            Token.countDocuments({ status: { $in: ['waiting', 'serving'] } }),
-
-            // Completed today
-            Token.countDocuments({
-                status: 'completed',
-                date: { $gte: today, $lt: tomorrow }
-            }),
-
-            // Cancelled today
-            Token.countDocuments({
-                status: 'cancelled',
-                date: { $gte: today, $lt: tomorrow }
-            }),
-
-            // Total customers
+            // Total customers (Lifetime)
             User.countDocuments({ role: 'customer' }),
 
             // Active staff
             User.countDocuments({ role: 'staff', isActive: true }),
 
-            // Revenue today
+            // Revenue
             Payment.aggregate([
                 {
                     $match: {
                         status: 'completed',
-                        createdAt: { $gte: today, $lt: tomorrow }
+                        createdAt: { $gte: startDate, $lte: endDate }
                     }
                 },
                 {
@@ -72,9 +68,9 @@ exports.getDashboard = async (req, res, next) => {
                 }
             ]),
 
-            // 🔥 Top 5 services THIS MONTH
+            // 🔥 Top 5 services THIS RANGE
             Token.aggregate([
-                { $match: { date: { $gte: startOfMonth } } },
+                { $match: { date: { $gte: startDate, $lte: endDate } } },
                 { $group: { _id: '$service', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
                 { $limit: 5 },
@@ -96,15 +92,10 @@ exports.getDashboard = async (req, res, next) => {
                 }
             ]),
 
-            // 🔥 Hourly booking distribution (safe method)
+            // 🔥 Hourly booking distribution (Tokens per time slot string instead of $hour)
             Token.aggregate([
-                { $match: { date: { $gte: today, $lt: tomorrow } } },
-                {
-                    $project: {
-                        hour: { $hour: '$date' }
-                    }
-                },
-                { $group: { _id: '$hour', count: { $sum: 1 } } },
+                { $match: { date: { $gte: startDate, $lte: endDate } } },
+                { $group: { _id: '$timeSlot', count: { $sum: 1 } } },
                 { $sort: { _id: 1 } }
             ]),
 
@@ -113,7 +104,7 @@ exports.getDashboard = async (req, res, next) => {
                 {
                     $match: {
                         status: 'completed',
-                        date: { $gte: today, $lt: tomorrow },
+                        date: { $gte: startDate, $lte: endDate },
                         staff: { $ne: null }
                     }
                 },
@@ -138,16 +129,20 @@ exports.getDashboard = async (req, res, next) => {
 
         ]);
 
+        const tokenCounts = tokenCountsAggregate[0] || { total: 0, waiting: 0, active: 0, completed: 0, cancelled: 0 };
+        const revenue = revenueAggregate[0] || { total: 0 };
+
         res.json({
             success: true,
             stats: {
-                totalTokensToday,
-                activeTokens,
-                completedToday,
-                cancelledToday,
+                totalTokensToday: tokenCounts.total,
+                waitingTokens: tokenCounts.waiting,
+                activeTokens: tokenCounts.active,
+                completedToday: tokenCounts.completed,
+                cancelledToday: tokenCounts.cancelled,
                 totalCustomers,
                 totalStaff,
-                revenueToday: revenueToday[0]?.total || 0,
+                revenueToday: revenue.total,
             },
             topServices,
             hourlyDistribution,

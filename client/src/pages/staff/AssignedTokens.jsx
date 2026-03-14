@@ -4,14 +4,16 @@ import { useSocket } from '../../context/SocketContext';
 import { toast } from 'react-hot-toast';
 import {
     CheckCircle, Play, XCircle, Clock,
-    MapPin, User, Ticket, Filter
+    MapPin, User, Ticket, Filter, UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
+import WalkInModal from '../../components/WalkInModal';
 
 const AssignedTokens = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('active'); // active, history
+    const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
     const { socket } = useSocket();
 
     useEffect(() => {
@@ -44,6 +46,16 @@ const AssignedTokens = () => {
             fetchMyTokens();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Update failed');
+        }
+    };
+
+    const handleClaim = async (tokenId) => {
+        try {
+            await api.post(`/tokens/${tokenId}/claim`);
+            toast.success('Token claimed successfully');
+            fetchMyTokens();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to claim token');
         }
     };
 
@@ -82,9 +94,14 @@ const AssignedTokens = () => {
                         History
                     </button>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={handleCallNext}>
-                    <Play size={16} style={{ marginRight: '6px' }} /> Call Next Customer
-                </button>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => setIsWalkInModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--success)' }}>
+                        <UserPlus size={16} /> Add Walk-in
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={handleCallNext}>
+                        <Play size={16} style={{ marginRight: '6px' }} /> Call Next Customer
+                    </button>
+                </div>
             </div>
 
             <div className="grid-1">
@@ -115,35 +132,39 @@ const AssignedTokens = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                                     <div style={{ textAlign: 'right' }}>
                                         <div className={`badge badge-${token.status}`}>{token.status.toUpperCase()}</div>
+                                        {!token.staff && <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--warning)', marginTop: '0.25rem' }}>Unassigned</div>}
                                         {token.notes && (
                                             <div style={{ fontSize: '0.7rem', color: 'var(--accent)', marginTop: '0.5rem', fontStyle: 'italic' }}>Has special notes</div>
                                         )}
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        {token.status === 'waiting' && (
+                                        {!token.staff && ['waiting', 'arrived'].includes(token.status) ? (
                                             <button
                                                 className="btn btn-primary"
-                                                onClick={() => handleStatusUpdate(token._id, 'serving')}
+                                                onClick={() => handleClaim(token._id)}
                                             >
-                                                <Play size={18} style={{ marginRight: '6px' }} /> Start Service
+                                                <UserPlus size={18} style={{ marginRight: '6px' }} /> Claim Token
                                             </button>
-                                        )}
-                                        {token.status === 'serving' && (
-                                            <button
-                                                className="btn btn-success"
-                                                onClick={() => handleStatusUpdate(token._id, 'completed')}
-                                            >
-                                                <CheckCircle size={18} style={{ marginRight: '6px' }} /> Complete
-                                            </button>
-                                        )}
-                                        {token.status === 'arrived' && (
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={() => handleStatusUpdate(token._id, 'serving')}
-                                            >
-                                                <Play size={18} style={{ marginRight: '6px' }} /> Start Service
-                                            </button>
+                                        ) : (
+                                            <>
+                                                {(token.status === 'waiting' || token.status === 'arrived') && (
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        onClick={() => handleStatusUpdate(token._id, 'serving')}
+                                                    >
+                                                        <Play size={18} style={{ marginRight: '6px' }} /> Start Service
+                                                    </button>
+                                                )}
+                                                {token.status === 'serving' && (
+                                                    <button
+                                                        className="btn btn-success"
+                                                        onClick={() => handleStatusUpdate(token._id, 'completed')}
+                                                    >
+                                                        <CheckCircle size={18} style={{ marginRight: '6px' }} /> Complete
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -165,6 +186,12 @@ const AssignedTokens = () => {
                     </div>
                 )}
             </div>
+
+            <WalkInModal
+                isOpen={isWalkInModalOpen}
+                onClose={() => setIsWalkInModalOpen(false)}
+                onSuccess={fetchMyTokens}
+            />
         </div>
     );
 };

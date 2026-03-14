@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Loyalty = require('../models/Loyalty');
+const sendEmail = require('../utils/sendEmail');
 
 
 // ===============================
@@ -283,6 +285,91 @@ exports.changePassword = async (req, res, next) => {
             message: 'Password updated successfully'
         });
 
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ===============================
+// @desc   Forgot password
+// ===============================
+exports.forgotPassword = async (req, res, next) => {
+    try {
+        const user = await User.findOne({ email: req.body.email });
+
+        if (!user) {
+            // Return success even if user not found to prevent email enumeration
+            return res.status(200).json({ success: true, message: 'Email sent' });
+        }
+
+        // Get reset token
+        const resetToken = user.getResetPasswordToken();
+
+        await user.save({ validateBeforeSave: false });
+
+        // Create reset url
+        // In a real app, you would use req.protocol and req.get('host') or an env variable for the frontend URL
+        // However, we are assuming the frontend is running on localhost:5173 or similar, or we just send the relative path for the demo
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+        const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'Password reset token',
+                message
+            });
+
+            res.status(200).json({ success: true, message: 'Email sent' });
+        } catch (err) {
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+
+            await user.save({ validateBeforeSave: false });
+
+            // We return 200 instead of 500 here because of the critical requirement
+            // that the app must still work if email fails
+            console.error('Failed to send email:', err);
+            return res.status(200).json({ success: true, message: 'Email sending failed but token generated.' });
+        }
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ===============================
+// @desc   Reset password
+// ===============================
+exports.resetPassword = async (req, res, next) => {
+    try {
+        // Get hashed token
+        const resetPasswordToken = crypto
+            .createHash('sha256')
+            .update(req.params.token)
+            .digest('hex');
+
+        const user = await User.findOne({
+            resetPasswordToken,
+            resetPasswordExpire: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+        }
+
+        // Set new password
+        user.password = req.body.password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        user.refreshToken = undefined; // Force re-login on other devices
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successful. Please log in with your new password.',
+        });
     } catch (err) {
         next(err);
     }

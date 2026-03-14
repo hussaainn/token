@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema(
     {
@@ -15,6 +16,8 @@ const userSchema = new mongoose.Schema(
         loyaltyPoints: { type: Number, default: 0 },
         specialization: { type: String, default: '' }, // for staff
         refreshToken: { type: String },
+        resetPasswordToken: { type: String },
+        resetPasswordExpire: { type: Date },
     },
     { timestamps: true }
 );
@@ -40,7 +43,26 @@ userSchema.methods.toJSON = function () {
     const obj = this.toObject();
     delete obj.password;
     delete obj.refreshToken;
+    delete obj.resetPasswordToken;
+    delete obj.resetPasswordExpire;
     return obj;
+};
+
+// Generate and hash password token
+userSchema.methods.getResetPasswordToken = function () {
+    // Generate token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    // Hash token and set to resetPasswordToken field
+    this.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+
+    // Set expire to 10 minutes from now
+    this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+    return resetToken;
 };
 
 userSchema.index({ role: 1 });

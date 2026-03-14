@@ -125,8 +125,13 @@ const Login = () => {
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '2rem' }}>
-                        <label className="form-label">Password</label>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className="form-label" style={{ marginBottom: '0' }}>Password</label>
+                            <Link to="/forgot-password" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                                Forgot Password?
+                            </Link>
+                        </div>
+                        <div style={{ position: 'relative', marginTop: '0.5rem' }}>
                             <Lock size={18}
                                 style={{
                                     position: 'absolute',

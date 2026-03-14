@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import QRScanner from '../../components/QRScanner';
 import api from '../../api/axios';
 import { toast } from 'react-hot-toast';
-import { Scan, User, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Scan, User, CheckCircle, AlertCircle, ArrowLeft, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const CheckIn = () => {

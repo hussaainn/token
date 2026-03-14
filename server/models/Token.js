@@ -3,7 +3,10 @@ const mongoose = require('mongoose');
 const tokenSchema = new mongoose.Schema(
     {
         tokenNumber: { type: String, required: true, unique: true },
-        customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        isWalkIn: { type: Boolean, default: false },
+        customerName: { type: String },
+        phone: { type: String },
         service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', required: true },
         staff: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         date: { type: Date, required: true },
@@ -41,5 +44,12 @@ tokenSchema.index({ customer: 1, date: 1 });
 tokenSchema.index({ status: 1, date: 1 });
 tokenSchema.index({ staff: 1, date: 1 });
 tokenSchema.index({ qrToken: 1 });
+tokenSchema.index(
+    { date: 1, timeSlot: 1, staff: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { staff: { $type: "objectId" } }
+    }
+);
 
 module.exports = mongoose.model('Token', tokenSchema);

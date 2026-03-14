@@ -1,14 +1,51 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useSocket } from '../context/SocketContext';
+import api from '../api/axios';
 import { LogOut, Sun, Moon, Menu, X, User, Bell, Ticket } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout, isAuthenticated } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const { socket } = useSocket();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.pathname === '/notifications') {
+            setUnreadCount(0);
+        }
+    }, [location.pathname]);
+
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            // Fetch initial unread count
+            api.get('/notifications')
+                .then(res => {
+                    setUnreadCount(res.data.unreadCount || 0);
+                })
+                .catch(err => console.error("Failed to load notifications:", err));
+
+            if (socket) {
+                const handleNewNotification = () => {
+                    setUnreadCount(prev => prev + 1);
+                };
+                socket.on('notification:new', handleNewNotification);
+                socket.on('notification:received', handleNewNotification);
+
+                return () => {
+                    socket.off('notification:new', handleNewNotification);
+                    socket.off('notification:received', handleNewNotification);
+                };
+            }
+        } else {
+            setUnreadCount(0); // clear count on logout
+        }
+    }, [isAuthenticated, user, socket]);
 
     const handleLogout = () => {
         logout();
@@ -43,6 +80,7 @@ const Navbar = () => {
                                 <>
                                     <Link to="/customer/book" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Book Service</Link>
                                     <Link to="/customer/tokens" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>My Tokens</Link>
+                                    <Link to="/customer/loyalty" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Loyalty Rewards</Link>
                                 </>
                             )}
                             {user.role === 'admin' && <Link to="/admin/dashboard" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Admin Panel</Link>}
@@ -52,7 +90,28 @@ const Navbar = () => {
                                 <button onClick={toggleTheme} className="btn-icon" style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer' }}>
                                     {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                                 </button>
-                                <Link to="/notifications" style={{ color: 'var(--text-secondary)' }}><Bell size={20} /></Link>
+                                <Link to="/notifications" style={{ color: 'var(--text-secondary)', position: 'relative' }}>
+                                    <Bell size={20} />
+                                    {unreadCount > 0 && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: -6,
+                                            right: -6,
+                                            background: 'var(--danger)',
+                                            color: 'white',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 800,
+                                            borderRadius: '50%',
+                                            width: 16,
+                                            height: 16,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </Link>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <div className="avatar" style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.8rem' }}>
                                         {user.name.charAt(0)}

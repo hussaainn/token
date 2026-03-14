@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../../api/axios';
 import { useGeoLocation } from '../../hooks/useGeoLocation';
-import { Ticket, Clock, MapPin, CheckCircle2, XCircle, ChevronRight, Calendar, User } from 'lucide-react';
+import { Ticket, Clock, MapPin, CheckCircle2, XCircle, ChevronRight, Calendar, User, Award, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 
@@ -11,6 +11,7 @@ const MyTokens = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedToken, setSelectedToken] = useState(null);
+    const [loyaltyData, setLoyaltyData] = useState(null);
     const navigate = useNavigate();
 
     const activeToken = tokens.find(t => ['waiting', 'serving'].includes(t.status));
@@ -18,7 +19,17 @@ const MyTokens = () => {
 
     useEffect(() => {
         fetchTokens();
+        fetchLoyalty();
     }, []);
+
+    const fetchLoyalty = async () => {
+        try {
+            const res = await api.get('/loyalty/me');
+            setLoyaltyData(res.data.loyalty);
+        } catch (err) {
+            console.error('Error fetching loyalty data');
+        }
+    };
 
     const fetchTokens = async () => {
         try {
@@ -55,6 +66,22 @@ const MyTokens = () => {
                     <button onClick={fetchTokens} className="btn btn-secondary btn-sm">Refresh</button>
                 </div>
             </div>
+
+            {loyaltyData && (
+                <div className="card stat-card" style={{ borderLeftColor: 'var(--primary)', marginBottom: '2rem', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <p className="stat-card-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Award size={16} /> {loyaltyData.tier?.toUpperCase() || 'BRONZE'} TIER
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                            <h1 className="stat-card-value" style={{ margin: 0 }}>{loyaltyData.totalPoints} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span></h1>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>View your full history and redeem rewards.</p>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={() => navigate('/customer/loyalty')}>Rewards Center</button>
+                    <Sparkles className="stat-card-icon" style={{ opacity: 0.05, top: '20%' }} />
+                </div>
+            )}
 
             {tokens.length === 0 ? (
                 <div className="empty-state card">

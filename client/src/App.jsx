@@ -9,6 +9,8 @@ import NotFound from './pages/NotFound';
 // Auth
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
 
 // Customer
 const BookService = lazy(() => import('./pages/customer/BookService'));
@@ -47,6 +49,8 @@ const App = () => {
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="reset-password/:token" element={<ResetPassword />} />
           <Route path="queue" element={<LiveQueue />} />
           <Route path="notifications" element={<Notifications />} />
 

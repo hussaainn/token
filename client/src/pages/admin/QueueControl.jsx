@@ -5,14 +5,19 @@ import { useSocket } from '../../context/SocketContext';
 import { toast } from 'react-hot-toast';
 import {
     Users, Play, CheckCircle, XCircle, Search,
-    Filter, MoreVertical, Bell, MapPin, Scan
+    Filter, MoreVertical, Bell, MapPin, Scan, UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
+import WalkInModal from '../../components/WalkInModal';
+import NotificationModal from '../../components/NotificationModal';
+import { MessageSquare } from 'lucide-react';
 
 const QueueControl = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+    const [selectedCustomerForNotification, setSelectedCustomerForNotification] = useState(null);
     const { socket } = useSocket();
 
     useEffect(() => {
@@ -67,6 +72,33 @@ const QueueControl = () => {
         }
     };
 
+    const handleSendNotification = async (message) => {
+        if (!selectedCustomerForNotification) return;
+
+        try {
+            const isCancellation = message.toLowerCase().includes('cancelled');
+            const tokenId = selectedCustomerForNotification._id;
+
+            // Safely extract customer ID whether it is populated or a string
+            const recipientId = selectedCustomerForNotification.customer?._id || selectedCustomerForNotification.customer;
+
+            const payload = {
+                recipientId,
+                message,
+                type: isCancellation ? 'appointment_cancelled' : 'general',
+                tokenId
+            };
+
+            console.log('Sending notification payload:', payload);
+
+            await api.post('/notifications/send', payload);
+            toast.success('Notification sent to customer');
+            setSelectedCustomerForNotification(null);
+        } catch (err) {
+            toast.error('Failed to send notification');
+        }
+    };
+
     const filteredTokens = filter === 'all'
         ? tokens
         : tokens.filter(t => t.status === filter);
@@ -94,6 +126,9 @@ const QueueControl = () => {
                     </select>
                     <button className="btn btn-primary btn-sm" onClick={handleCallNext}>
                         <Bell size={16} style={{ marginRight: '6px' }} /> Call Next
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => setIsWalkInModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--success)' }}>
+                        <UserPlus size={16} /> Add Walk-in
                     </button>
                     <Link to="/admin/check-in" className="btn btn-outline-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Scan size={16} /> Scan Arrival
@@ -174,7 +209,15 @@ const QueueControl = () => {
                                         >
                                             <XCircle size={16} />
                                         </button>
-                                        <button className="btn btn-secondary btn-sm"><Bell size={16} /></button>
+                                        {token.customer && token.customer._id && (
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => setSelectedCustomerForNotification(token)}
+                                                title="Send Notification"
+                                            >
+                                                <Bell size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -188,6 +231,21 @@ const QueueControl = () => {
                     </div>
                 )}
             </div>
+
+            <WalkInModal
+                isOpen={isWalkInModalOpen}
+                onClose={() => setIsWalkInModalOpen(false)}
+                onSuccess={fetchActiveTokens}
+            />
+
+            {selectedCustomerForNotification && (
+                <NotificationModal
+                    isOpen={!!selectedCustomerForNotification}
+                    onClose={() => setSelectedCustomerForNotification(null)}
+                    onSend={handleSendNotification}
+                    customerName={selectedCustomerForNotification.customer?.name}
+                />
+            )}
         </div>
     );
 };

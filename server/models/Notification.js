@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema(
         recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         type: {
             type: String,
-            enum: ['token_generated', 'two_remaining', 'your_turn', 'completed', 'promotion', 'general'],
+            enum: ['token_generated', 'two_remaining', 'your_turn', 'completed', 'promotion', 'general', 'appointment_cancelled', 'turn_approaching', 'turn_skipped', 'appointment_confirmed', 'custom'],
             default: 'general',
         },
         title: { type: String, required: true },

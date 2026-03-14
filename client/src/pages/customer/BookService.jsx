@@ -19,6 +19,8 @@ const BookService = () => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [waitTime, setWaitTime] = useState(null);
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
 
     const navigate = useNavigate();
 
@@ -27,12 +29,13 @@ const BookService = () => {
             try {
                 const [servicesRes, staffRes] = await Promise.all([
                     api.get('/services'),
-                    api.get('/staff')
+                    api.get('/users/staff')
                 ]);
                 setServices(servicesRes.data.services);
-                setStaff(staffRes.data.staff.filter(s => s.isActive));
+                // Backend already filters by isActive: true, but doesn't return the isActive field.
+                setStaff(staffRes.data.staff);
             } catch (err) {
-                toast.error('Failed to load services');
+                toast.error('Failed to load services or staff. Booking can still proceed.');
             } finally {
                 setLoading(false);
             }
@@ -40,11 +43,25 @@ const BookService = () => {
         fetchData();
     }, []);
 
-    const timeSlots = [
-        '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
-        '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
-        '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM'
-    ];
+    useEffect(() => {
+        if (step !== 2) return;
+        const fetchSlots = async () => {
+            setLoadingSlots(true);
+            try {
+                const res = await api.get(`/tokens/available-slots?date=${formData.date}&staffId=${formData.staffId || ''}`);
+                setAvailableSlots(res.data.availableSlots || []);
+                if (formData.timeSlot && !res.data.availableSlots.includes(formData.timeSlot)) {
+                    setFormData(prev => ({ ...prev, timeSlot: '' })); // Reset if selected slot is gone
+                }
+            } catch (err) {
+                toast.error('Failed to load available slots');
+                setAvailableSlots([]);
+            } finally {
+                setLoadingSlots(false);
+            }
+        };
+        fetchSlots();
+    }, [formData.date, formData.staffId, step]);
 
     const handleServiceSelect = async (serviceId) => {
         setFormData({ ...formData, serviceId });
@@ -159,27 +176,40 @@ const BookService = () => {
                                 value={formData.staffId}
                                 onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
                             >
-                                <option value="">Any Staff</option>
+                                <option value="">No Preference</option>
                                 {staff.map(member => (
-                                    <option key={member._id} value={member._id}>{member.name} - {member.specialization}</option>
+                                    <option key={member._id} value={member._id}>{member.name} — {member.specialization}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
                     <h4 style={{ margin: '1.5rem 0 1rem' }}>Available Slots</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
-                        {timeSlots.map(slot => (
-                            <button
-                                key={slot}
-                                className={`btn ${formData.timeSlot === slot ? 'btn-primary' : 'btn-secondary'}`}
-                                style={{ fontSize: '0.8rem', padding: '0.5rem' }}
-                                onClick={() => setFormData({ ...formData, timeSlot: slot })}
-                            >
-                                {slot}
-                            </button>
-                        ))}
-                    </div>
+                    {loadingSlots ? (
+                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto' }} />
+                        </div>
+                    ) : availableSlots.length === 0 ? (
+                        <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No slots available for this date/staff.
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
+                            {availableSlots.map(slot => (
+                                <button
+                                    key={slot}
+                                    className={`btn ${formData.timeSlot === slot ? 'btn-primary' : 'btn-secondary'}`}
+                                    style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setFormData({ ...formData, timeSlot: slot });
+                                    }}
+                                >
+                                    {slot}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="form-group" style={{ marginTop: '1.5rem' }}>
                         <label className="form-label">Special Notes (Optional)</label>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import { Users, Clock, Calendar, Ticket, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
@@ -8,6 +9,7 @@ const LiveQueue = () => {
     const [queue, setQueue] = useState([]);
     const [loading, setLoading] = useState(true);
     const { socket } = useSocket();
+    const { user } = useAuth();
 
     useEffect(() => {
         const fetchQueue = async () => {
@@ -135,25 +137,29 @@ const LiveQueue = () => {
                         <Ticket className="empty-state-icon" />
                         <h3>Queue is Empty</h3>
                         <p>There are no customers currently waiting in the queue.</p>
-                        <a href="/customer/book" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Book a Service</a>
+                        {!['admin', 'staff'].includes(user?.role) && (
+                            <a href="/customer/book" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Book a Service</a>
+                        )}
                     </div>
                 )}
             </div>
 
-            <div className="card" style={{ marginTop: '3rem', background: 'var(--bg-secondary)', border: 'none' }}>
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                    <div style={{ width: '80px', height: '80px', background: 'var(--surface)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Calendar size={40} style={{ color: 'var(--primary)' }} />
-                    </div>
-                    <div>
-                        <h3 style={{ marginBottom: '0.5rem' }}>Want to skip the line?</h3>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Book an appointment in advance and get notified when it's your turn.</p>
-                        <a href="/customer/book" className="btn btn-primary btn-sm">
-                            Schedule Appointment <ChevronRight size={16} />
-                        </a>
+            {!['admin', 'staff'].includes(user?.role) && (
+                <div className="card" style={{ marginTop: '3rem', background: 'var(--bg-secondary)', border: 'none' }}>
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                        <div style={{ width: '80px', height: '80px', background: 'var(--surface)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Calendar size={40} style={{ color: 'var(--primary)' }} />
+                        </div>
+                        <div>
+                            <h3 style={{ marginBottom: '0.5rem' }}>Want to skip the line?</h3>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Book an appointment in advance and get notified when it's your turn.</p>
+                            <a href="/customer/book" className="btn btn-primary btn-sm">
+                                Schedule Appointment <ChevronRight size={16} />
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

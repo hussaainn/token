@@ -4,9 +4,12 @@ const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Loyalty = require('../models/Loyalty');
 const { generateQRToken, generateQRCode } = require('../utils/qrCode');
+const QRCode = require('qrcode');
 const { generateTokenNumber } = require('../utils/tokenGenerator');
 const { predictWaitingTime, getQueuePosition } = require('../utils/waitingTimeAI');
 const { sendNotification } = require('../utils/pushNotification');
+const sendEmail = require('../utils/sendEmail');
+const { getBookingConfirmationEmail } = require('../utils/emailTemplates');
 const { getIO } = require('../config/socket');
 
 // Emit queue update to all connected clients
@@ -28,102 +31,32 @@ const emitQueueUpdate = async () => {
         io.to('admin:room').emit('queue:update', queue);
     } catch (_) { }
 };
+
 // @desc   Book a token
 // @route  POST /api/tokens
 // @access Private (customer)
 exports.bookToken = async (req, res, next) => {
     try {
         if (req.user.role !== 'customer') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only customers can book tokens'
-            });
+            return res.status(403).json({ success: false, message: 'Only customers can book tokens' });
         }
 
         const { serviceId, date, timeSlot, staffId, notes } = req.body;
 
         if (!serviceId || !date || !timeSlot) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing required fields'
-            });
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
         const bookingDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
 
         if (isNaN(bookingDate) || bookingDate < today) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid booking date'
-            });
+            return res.status(400).json({ success: false, message: 'Invalid booking date' });
         }
-
-        // ===============================
-        // 🔒 Prevent booking past time
-        // ===============================
-
-        const now = new Date();
-
-        const isSameDay =
-            bookingDate.toDateString() === now.toDateString();
-
-        if (isSameDay) {
-
-            // Expecting format like "7:00 PM" or "07:00 AM"
-            const timeParts = timeSlot.trim().split(' ');
-
-            if (timeParts.length !== 2) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid time format'
-                });
-            }
-
-            const [time, modifier] = timeParts;
-            let [hours, minutes] = time.split(':');
-
-            hours = parseInt(hours);
-            minutes = parseInt(minutes);
-
-            if (isNaN(hours) || isNaN(minutes)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid time format'
-                });
-            }
-
-            // Convert to 24-hour format
-            if (modifier.toUpperCase() === 'PM' && hours !== 12) {
-                hours += 12;
-            }
-
-            if (modifier.toUpperCase() === 'AM' && hours === 12) {
-                hours = 0;
-            }
-
-            const selectedDateTime = new Date(bookingDate);
-            selectedDateTime.setHours(hours, minutes, 0, 0);
-
-            if (selectedDateTime <= now) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Cannot book past time slot'
-                });
-            }
-        }
-
-        // ===============================
-        // Continue normal booking logic
-        // ===============================
 
         const service = await Service.findById(serviceId);
         if (!service || !service.isActive) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service not found'
-            });
+            return res.status(404).json({ success: false, message: 'Service not found' });
         }
 
         const existing = await Token.findOne({
@@ -134,20 +67,13 @@ exports.bookToken = async (req, res, next) => {
         });
 
         if (existing) {
-            return res.status(400).json({
-                success: false,
-                message: 'You already have booking for this slot'
-            });
+            return res.status(400).json({ success: false, message: 'You already have booking for this slot' });
         }
 
         const tokenNumber = await generateTokenNumber(Token);
         const qrToken = generateQRToken();
 
-        const staffCount = await User.countDocuments({
-            role: 'staff',
-            isActive: true
-        });
-
+        const staffCount = await User.countDocuments({ role: 'staff', isActive: true });
         const waitTime = await predictWaitingTime(serviceId, staffCount);
         const qrCode = await generateQRCode({ tokenNumber, qrToken });
 
@@ -168,10 +94,102 @@ exports.bookToken = async (req, res, next) => {
 
         emitQueueUpdate();
 
-        res.status(201).json({
-            success: true,
-            token
-        });
+        // Trigger booking confirmation email securely
+        try {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const userDoc = await User.findById(req.user._id);
+            const staffDoc = staffId ? await User.findById(staffId) : null;
+            const qrCodeBase64 = await QRCode.toDataURL(token.qrToken || token.tokenNumber);
+
+            if (userDoc && userDoc.email) {
+                const emailHtml = getBookingConfirmationEmail({
+                    customerName: userDoc.name,
+                    tokenNumber: token.tokenNumber,
+                    serviceName: service.name,
+                    staffName: staffDoc ? staffDoc.name : 'No Preference',
+                    date: bookingDate.toDateString(),
+                    timeSlot: timeSlot,
+                    qrCodeDataUrl: qrCodeBase64,
+                    frontendUrl: frontendUrl
+                });
+
+                sendEmail({
+                    email: userDoc.email,
+                    subject: `Booking Confirmed: Token ${token.tokenNumber} - Mercy Salon`,
+                    html: emailHtml
+                }).catch(err => console.error('Email error:', err));
+            }
+        } catch (emailErr) {
+            console.error('Non-critical: Failed to send booking confirmation email:', emailErr);
+        }
+
+        res.status(201).json({ success: true, token });
+
+    } catch (err) {
+        // Catch duplicate key error from compound index (date, timeSlot, staff)
+        if (err.code === 11000 && err.keyPattern && err.keyPattern.timeSlot && err.keyPattern.staff) {
+            return res.status(400).json({ success: false, message: 'This slot was just booked by someone else. Please select another.' });
+        }
+        next(err);
+    }
+};
+
+// @desc   Get available slots
+// @route  GET /api/tokens/available-slots
+// @access Public
+exports.getAvailableSlots = async (req, res, next) => {
+    try {
+        const { date, staffId } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ success: false, message: 'Date is required' });
+        }
+
+        const bookingDate = new Date(date);
+        bookingDate.setHours(0, 0, 0, 0);
+
+        const timeSlots = [
+            '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
+            '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
+            '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM'
+        ];
+
+        let availableSlots = [...timeSlots];
+
+        // Filter out past slots
+        const today = new Date();
+        const isToday = bookingDate.toDateString() === today.toDateString();
+
+        if (isToday) {
+            const currentHour = today.getHours();
+            const currentMinute = today.getMinutes();
+
+            availableSlots = availableSlots.filter(slot => {
+                const [time, modifier] = slot.split(' ');
+                let [hours, minutes] = time.split(':').map(Number);
+
+                if (modifier === 'PM' && hours < 12) hours += 12;
+                if (modifier === 'AM' && hours === 12) hours = 0;
+
+                if (hours > currentHour) return true;
+                if (hours === currentHour && minutes > currentMinute) return true;
+                return false;
+            });
+        }
+
+        // Filter out already booked slots for the staff member
+        if (staffId) {
+            const bookedTokens = await Token.find({
+                date: bookingDate,
+                staff: staffId,
+                status: { $nin: ['cancelled', 'no-show'] }
+            });
+
+            const bookedSlots = bookedTokens.map(t => t.timeSlot);
+            availableSlots = availableSlots.filter(slot => !bookedSlots.includes(slot));
+        }
+
+        res.json({ success: true, availableSlots });
 
     } catch (err) {
         next(err);
@@ -521,3 +539,201 @@ exports.getAllTokens = async (req, res, next) => {
     }
 };
 
+// @desc   Get tokens assigned to logged-in staff and unassigned tokens
+// @route  GET /api/tokens/my-assigned
+// @access Private (staff)
+exports.getMyAssignedTokens = async (req, res, next) => {
+    try {
+        if (req.user.role !== 'staff') {
+            return res.status(403).json({ success: false, message: 'Only staff can access this route' });
+        }
+
+        const { status, date } = req.query;
+        let staffFilter = { staff: req.user._id };
+        const filter = {};
+
+        if (status) {
+            if (status === 'active') {
+                filter.status = { $in: ['waiting', 'arrived', 'serving'] };
+                // For active tokens, staff should see their own OR unassigned
+                staffFilter = { $or: [{ staff: req.user._id }, { staff: null }] };
+            } else {
+                filter.status = status;
+            }
+        }
+
+        Object.assign(filter, staffFilter);
+
+        let targetDate = new Date();
+        if (date) {
+            targetDate = new Date(date);
+        }
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        filter.date = { $gte: targetDate, $lt: nextDay };
+
+        const tokens = await Token.find(filter)
+            .sort({ status: -1, timeSlot: 1, createdAt: 1 })
+            .populate('customer', 'name phone')
+            .populate('service', 'name duration');
+
+        res.json({ success: true, tokens });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// @desc   Add a walk-in token
+// @route  POST /api/tokens/walkin
+// @access Private (admin, staff)
+exports.addWalkInToken = async (req, res, next) => {
+    try {
+        if (!['admin', 'staff'].includes(req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        const { customerName, phone, serviceId, staffId, date, timeSlot } = req.body;
+
+        if (!customerName || !serviceId || !date || !timeSlot) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        const bookingDate = new Date(date);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+
+        if (isNaN(bookingDate) || bookingDate < today) {
+            return res.status(400).json({ success: false, message: 'Invalid or past date' });
+        }
+
+        // Check staff availability for this slot
+        const existingTokens = await Token.find({
+            date: bookingDate,
+            timeSlot: timeSlot,
+            status: { $in: ['waiting', 'arrived', 'serving'] }
+        });
+
+        if (staffId) {
+            const hasConflict = existingTokens.some(t => t.staff && t.staff.toString() === staffId);
+            if (hasConflict) {
+                return res.status(400).json({ success: false, message: 'Staff member is already booked for this slot' });
+            }
+        }
+
+        const service = await Service.findById(serviceId);
+        if (!service || !service.isActive) {
+            return res.status(404).json({ success: false, message: 'Service not found or inactive' });
+        }
+
+        // Generate token number
+        const dateStr = bookingDate.toISOString().split('T')[0].replace(/-/g, '');
+        const countToday = await Token.countDocuments({
+            date: {
+                $gte: bookingDate,
+                $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000)
+            }
+        });
+        const tokenNumber = `WALK-${dateStr}-${(countToday + 1).toString().padStart(3, '0')}`;
+
+        const position = await getQueuePosition(serviceId);
+        const qrToken = generateQRToken();
+        const qrCodeDataUrl = await generateQRCode(qrToken);
+
+        const token = await Token.create({
+            tokenNumber,
+            isWalkIn: true,
+            customerName,
+            phone: phone || '',
+            service: serviceId,
+            staff: staffId || null,
+            date: bookingDate,
+            timeSlot,
+            status: 'waiting',
+            position,
+            qrToken,
+            qrCode: qrCodeDataUrl,
+            estimatedWaitTime: await predictWaitingTime(serviceId)
+        });
+
+        const tokenData = await Token.findById(token._id)
+            .populate('service', 'name price duration')
+            .populate('staff', 'name');
+
+        emitQueueUpdate();
+
+        // Trigger booking confirmation email securely if phone matches an existing user with an email
+        try {
+            if (phone) {
+                const existingUser = await User.findOne({ phone: phone });
+                if (existingUser && existingUser.email) {
+                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                    const qrCodeBase64 = await QRCode.toDataURL(tokenData.qrToken || tokenData.tokenNumber);
+                    const emailHtml = getBookingConfirmationEmail({
+                        customerName: customerName,
+                        tokenNumber: tokenNumber,
+                        serviceName: service.name,
+                        staffName: tokenData.staff ? tokenData.staff.name : 'No Preference',
+                        date: bookingDate.toDateString(),
+                        timeSlot: timeSlot,
+                        qrCodeDataUrl: qrCodeBase64,
+                        frontendUrl: frontendUrl
+                    });
+
+                    sendEmail({
+                        email: existingUser.email,
+                        subject: `Walk-in Booking Confirmed: Token ${tokenNumber} - Mercy Salon`,
+                        html: emailHtml
+                    }).catch(err => console.error('Email error:', err));
+                }
+            }
+        } catch (emailErr) {
+            console.error('Non-critical: Failed to send walk-in booking confirmation email:', emailErr);
+        }
+
+        res.status(201).json({ success: true, token: tokenData });
+
+    } catch (err) {
+        if (err.code === 11000) {
+            return res.status(400).json({ success: false, message: 'This slot was just booked by someone else. Please select another slot.' });
+        }
+        next(err);
+    }
+};
+
+// @desc   Claim an unassigned token
+// @route  POST /api/tokens/:id/claim
+// @access Private (staff)
+exports.claimToken = async (req, res, next) => {
+    try {
+        if (req.user.role !== 'staff') {
+            return res.status(403).json({ success: false, message: 'Only staff can claim tokens' });
+        }
+
+        const token = await Token.findById(req.params.id)
+            .populate('service', 'name price duration')
+            .populate('staff', 'name');
+
+        if (!token) {
+            return res.status(404).json({ success: false, message: 'Token not found' });
+        }
+
+        if (token.staff) {
+            return res.status(400).json({ success: false, message: 'Token is already assigned to a staff member' });
+        }
+
+        if (!['waiting', 'arrived'].includes(token.status)) {
+            return res.status(400).json({ success: false, message: 'Only active tokens can be claimed' });
+        }
+
+        token.staff = req.user._id;
+        token.status = 'serving'; // Automatically start serving upon claim, per typical flow
+        token.startedAt = new Date();
+        await token.save();
+
+        emitQueueUpdate();
+
+        res.json({ success: true, message: 'Token claimed successfully', token });
+    } catch (err) {
+        next(err);
+    }
+};

@@ -7,13 +7,15 @@ import {
 } from 'recharts';
 import {
     Users, Ticket, DollarSign, TrendingUp, Clock, AlertCircle,
-    ChevronRight, ArrowUpRight, ArrowDownRight
+    ChevronRight, ArrowUpRight, ArrowDownRight, UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
+import WalkInModal from '../../components/WalkInModal';
 
 const Dashboard = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -38,10 +40,19 @@ const Dashboard = () => {
     return (
         <div className="fade-in">
             <div className="section-header">
-                <h2 className="section-title">Admin Dashboard</h2>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    Updated: {format(new Date(), 'MMM dd, yyyy HH:mm')}
+                <div>
+                    <h2 className="section-title">Admin Dashboard</h2>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                        Updated: {format(new Date(), 'MMM dd, yyyy HH:mm')}
+                    </div>
                 </div>
+                <button
+                    className="btn btn-primary"
+                    onClick={() => setIsWalkInModalOpen(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--success)' }}
+                >
+                    <UserPlus size={18} /> Add Walk-in
+                </button>
             </div>
 
             {/* Quick Actions */}
@@ -234,6 +245,13 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            <WalkInModal
+                isOpen={isWalkInModalOpen}
+                onClose={() => setIsWalkInModalOpen(false)}
+                // Don't have a specific queue fetch here, but reloading the whole page or letting Socket.IO handle it works
+                onSuccess={() => window.location.reload()}
+            />
         </div>
     );
 };
