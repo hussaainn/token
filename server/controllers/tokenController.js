@@ -4,12 +4,18 @@ const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Loyalty = require('../models/Loyalty');
 const { generateQRToken, generateQRCode } = require('../utils/qrCode');
+<<<<<<< HEAD
 const QRCode = require('qrcode');
 const { generateTokenNumber } = require('../utils/tokenGenerator');
 const { predictWaitingTime, getQueuePosition } = require('../utils/waitingTimeAI');
 const { sendNotification } = require('../utils/pushNotification');
 const sendEmail = require('../utils/sendEmail');
 const { getBookingConfirmationEmail } = require('../utils/emailTemplates');
+=======
+const { generateTokenNumber } = require('../utils/tokenGenerator');
+const { predictWaitingTime, getQueuePosition } = require('../utils/waitingTimeAI');
+const { sendNotification } = require('../utils/pushNotification');
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 const { getIO } = require('../config/socket');
 
 // Emit queue update to all connected clients
@@ -94,6 +100,7 @@ exports.bookToken = async (req, res, next) => {
 
         emitQueueUpdate();
 
+<<<<<<< HEAD
         // Trigger booking confirmation email securely
         try {
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -192,6 +199,11 @@ exports.getAvailableSlots = async (req, res, next) => {
         res.json({ success: true, availableSlots });
 
     } catch (err) {
+=======
+        res.status(201).json({ success: true, token });
+
+    } catch (err) {
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
         next(err);
     }
 };
@@ -538,6 +550,7 @@ exports.getAllTokens = async (req, res, next) => {
         next(err);
     }
 };
+<<<<<<< HEAD
 
 // @desc   Get tokens assigned to logged-in staff and unassigned tokens
 // @route  GET /api/tokens/my-assigned
@@ -737,3 +750,5 @@ exports.claimToken = async (req, res, next) => {
         next(err);
     }
 };
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f

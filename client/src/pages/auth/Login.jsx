@@ -125,6 +125,7 @@ const Login = () => {
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '2rem' }}>
+<<<<<<< HEAD
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <label className="form-label" style={{ marginBottom: '0' }}>Password</label>
                             <Link to="/forgot-password" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
@@ -132,6 +133,10 @@ const Login = () => {
                             </Link>
                         </div>
                         <div style={{ position: 'relative', marginTop: '0.5rem' }}>
+=======
+                        <label className="form-label">Password</label>
+                        <div style={{ position: 'relative' }}>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                             <Lock size={18}
                                 style={{
                                     position: 'absolute',

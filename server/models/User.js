@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+<<<<<<< HEAD
 const crypto = require('crypto');
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
 const userSchema = new mongoose.Schema(
     {
@@ -16,8 +19,11 @@ const userSchema = new mongoose.Schema(
         loyaltyPoints: { type: Number, default: 0 },
         specialization: { type: String, default: '' }, // for staff
         refreshToken: { type: String },
+<<<<<<< HEAD
         resetPasswordToken: { type: String },
         resetPasswordExpire: { type: Date },
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     },
     { timestamps: true }
 );
@@ -43,6 +49,7 @@ userSchema.methods.toJSON = function () {
     const obj = this.toObject();
     delete obj.password;
     delete obj.refreshToken;
+<<<<<<< HEAD
     delete obj.resetPasswordToken;
     delete obj.resetPasswordExpire;
     return obj;
@@ -65,6 +72,11 @@ userSchema.methods.getResetPasswordToken = function () {
     return resetToken;
 };
 
+=======
+    return obj;
+};
+
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 userSchema.index({ role: 1 });
 
 module.exports = mongoose.model('User', userSchema);

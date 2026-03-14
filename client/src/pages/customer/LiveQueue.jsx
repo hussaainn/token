@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '../../context/SocketContext';
+<<<<<<< HEAD
 import { useAuth } from '../../context/AuthContext';
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 import api from '../../api/axios';
 import { Users, Clock, Calendar, Ticket, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
@@ -9,7 +12,10 @@ const LiveQueue = () => {
     const [queue, setQueue] = useState([]);
     const [loading, setLoading] = useState(true);
     const { socket } = useSocket();
+<<<<<<< HEAD
     const { user } = useAuth();
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
     useEffect(() => {
         const fetchQueue = async () => {
@@ -137,13 +143,18 @@ const LiveQueue = () => {
                         <Ticket className="empty-state-icon" />
                         <h3>Queue is Empty</h3>
                         <p>There are no customers currently waiting in the queue.</p>
+<<<<<<< HEAD
                         {!['admin', 'staff'].includes(user?.role) && (
                             <a href="/customer/book" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Book a Service</a>
                         )}
+=======
+                        <a href="/customer/book" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Book a Service</a>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                     </div>
                 )}
             </div>
 
+<<<<<<< HEAD
             {!['admin', 'staff'].includes(user?.role) && (
                 <div className="card" style={{ marginTop: '3rem', background: 'var(--bg-secondary)', border: 'none' }}>
                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
@@ -160,6 +171,22 @@ const LiveQueue = () => {
                     </div>
                 </div>
             )}
+=======
+            <div className="card" style={{ marginTop: '3rem', background: 'var(--bg-secondary)', border: 'none' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                    <div style={{ width: '80px', height: '80px', background: 'var(--surface)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Calendar size={40} style={{ color: 'var(--primary)' }} />
+                    </div>
+                    <div>
+                        <h3 style={{ marginBottom: '0.5rem' }}>Want to skip the line?</h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Book an appointment in advance and get notified when it's your turn.</p>
+                        <a href="/customer/book" className="btn btn-primary btn-sm">
+                            Schedule Appointment <ChevronRight size={16} />
+                        </a>
+                    </div>
+                </div>
+            </div>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
         </div>
     );
 };

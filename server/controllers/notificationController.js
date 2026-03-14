@@ -1,7 +1,10 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+<<<<<<< HEAD
 const Token = require('../models/Token');
 const { getIO } = require('../config/socket');
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
 
 // ===============================
@@ -123,6 +126,7 @@ exports.subscribe = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+<<<<<<< HEAD
 };
 
 
@@ -198,4 +202,6 @@ exports.sendPushNotification = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 };

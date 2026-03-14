@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../../api/axios';
 import { useGeoLocation } from '../../hooks/useGeoLocation';
+<<<<<<< HEAD
 import { Ticket, Clock, MapPin, CheckCircle2, XCircle, ChevronRight, Calendar, User, Award, Sparkles } from 'lucide-react';
+=======
+import { Ticket, Clock, MapPin, CheckCircle2, XCircle, ChevronRight, Calendar, User } from 'lucide-react';
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 
@@ -11,7 +15,10 @@ const MyTokens = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedToken, setSelectedToken] = useState(null);
+<<<<<<< HEAD
     const [loyaltyData, setLoyaltyData] = useState(null);
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     const navigate = useNavigate();
 
     const activeToken = tokens.find(t => ['waiting', 'serving'].includes(t.status));
@@ -19,6 +26,7 @@ const MyTokens = () => {
 
     useEffect(() => {
         fetchTokens();
+<<<<<<< HEAD
         fetchLoyalty();
     }, []);
 
@@ -31,6 +39,10 @@ const MyTokens = () => {
         }
     };
 
+=======
+    }, []);
+
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     const fetchTokens = async () => {
         try {
             const res = await api.get('/tokens/my');
@@ -67,6 +79,7 @@ const MyTokens = () => {
                 </div>
             </div>
 
+<<<<<<< HEAD
             {loyaltyData && (
                 <div className="card stat-card" style={{ borderLeftColor: 'var(--primary)', marginBottom: '2rem', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -83,6 +96,8 @@ const MyTokens = () => {
                 </div>
             )}
 
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
             {tokens.length === 0 ? (
                 <div className="empty-state card">
                     <Ticket className="empty-state-icon" />

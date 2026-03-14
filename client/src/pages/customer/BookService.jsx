@@ -19,8 +19,11 @@ const BookService = () => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [waitTime, setWaitTime] = useState(null);
+<<<<<<< HEAD
     const [availableSlots, setAvailableSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
     const navigate = useNavigate();
 
@@ -29,6 +32,7 @@ const BookService = () => {
             try {
                 const [servicesRes, staffRes] = await Promise.all([
                     api.get('/services'),
+<<<<<<< HEAD
                     api.get('/users/staff')
                 ]);
                 setServices(servicesRes.data.services);
@@ -36,6 +40,14 @@ const BookService = () => {
                 setStaff(staffRes.data.staff);
             } catch (err) {
                 toast.error('Failed to load services or staff. Booking can still proceed.');
+=======
+                    api.get('/staff')
+                ]);
+                setServices(servicesRes.data.services);
+                setStaff(staffRes.data.staff.filter(s => s.isActive));
+            } catch (err) {
+                toast.error('Failed to load services');
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
             } finally {
                 setLoading(false);
             }
@@ -43,6 +55,7 @@ const BookService = () => {
         fetchData();
     }, []);
 
+<<<<<<< HEAD
     useEffect(() => {
         if (step !== 2) return;
         const fetchSlots = async () => {
@@ -62,6 +75,13 @@ const BookService = () => {
         };
         fetchSlots();
     }, [formData.date, formData.staffId, step]);
+=======
+    const timeSlots = [
+        '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
+        '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
+        '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM'
+    ];
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
     const handleServiceSelect = async (serviceId) => {
         setFormData({ ...formData, serviceId });
@@ -176,15 +196,22 @@ const BookService = () => {
                                 value={formData.staffId}
                                 onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
                             >
+<<<<<<< HEAD
                                 <option value="">No Preference</option>
                                 {staff.map(member => (
                                     <option key={member._id} value={member._id}>{member.name} — {member.specialization}</option>
+=======
+                                <option value="">Any Staff</option>
+                                {staff.map(member => (
+                                    <option key={member._id} value={member._id}>{member.name} - {member.specialization}</option>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                                 ))}
                             </select>
                         </div>
                     </div>
 
                     <h4 style={{ margin: '1.5rem 0 1rem' }}>Available Slots</h4>
+<<<<<<< HEAD
                     {loadingSlots ? (
                         <div style={{ padding: '2rem', textAlign: 'center' }}>
                             <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto' }} />
@@ -210,6 +237,20 @@ const BookService = () => {
                             ))}
                         </div>
                     )}
+=======
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
+                        {timeSlots.map(slot => (
+                            <button
+                                key={slot}
+                                className={`btn ${formData.timeSlot === slot ? 'btn-primary' : 'btn-secondary'}`}
+                                style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+                                onClick={() => setFormData({ ...formData, timeSlot: slot })}
+                            >
+                                {slot}
+                            </button>
+                        ))}
+                    </div>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
                     <div className="form-group" style={{ marginTop: '1.5rem' }}>
                         <label className="form-label">Special Notes (Optional)</label>

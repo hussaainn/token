@@ -6,20 +6,28 @@ import {
 } from 'recharts';
 import {
     TrendingUp, TrendingDown, Users, Clock,
+<<<<<<< HEAD
     DollarSign, Download, Filter, Calendar, MessageSquare, Star
+=======
+    DollarSign, Download, Filter, Calendar
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 
 const Analytics = () => {
     const [data, setData] = useState(null);
+<<<<<<< HEAD
     const [reviews, setReviews] = useState([]);
     const [staffRatings, setStaffRatings] = useState([]);
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState('7d');
 
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
+<<<<<<< HEAD
                 const [resData, resReviews] = await Promise.all([
                     api.get(`/admin/dashboard?range=${dateRange}`),
                     api.get(`/reviews`)
@@ -45,6 +53,10 @@ const Analytics = () => {
                 })).sort((a, b) => b.avg - a.avg);
 
                 setStaffRatings(sStats);
+=======
+                const res = await api.get(`/admin/dashboard?range=${dateRange}`);
+                setData(res.data);
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
             } catch (err) {
                 console.error('Error fetching analytics');
             } finally {
@@ -119,6 +131,7 @@ const Analytics = () => {
 
             <div className="grid-1" style={{ marginBottom: '2rem' }}>
                 <div className="card">
+<<<<<<< HEAD
                     <h3 style={{ marginBottom: '1.5rem' }}>Tokens per Time Slot</h3>
                     {hourlyDistribution && hourlyDistribution.length > 0 ? (
                         <div style={{ width: '100%', height: 350 }}>
@@ -143,6 +156,34 @@ const Analytics = () => {
                             <p style={{ color: 'var(--text-muted)' }}>No data available for the selected period.</p>
                         </div>
                     )}
+=======
+                    <h3 style={{ marginBottom: '1.5rem' }}>Revenue Trend</h3>
+                    <div style={{ width: '100%', height: 350 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={[
+                                { date: 'Mon', revenue: 4000 },
+                                { date: 'Tue', revenue: 3000 },
+                                { date: 'Wed', revenue: 5500 },
+                                { date: 'Thu', revenue: 4800 },
+                                { date: 'Fri', revenue: 7000 },
+                                { date: 'Sat', revenue: 8500 },
+                                { date: 'Sun', revenue: 7200 },
+                            ]}>
+                                <defs>
+                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                                <Tooltip />
+                                <Area type="monotone" dataKey="revenue" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                 </div>
             </div>
 
@@ -165,6 +206,7 @@ const Analytics = () => {
 
                 <div className="card">
                     <h3 style={{ marginBottom: '1.5rem' }}>Income Distribution by Category</h3>
+<<<<<<< HEAD
                     {topServices && topServices.length > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
                             <PieChart width={300} height={300}>
@@ -260,6 +302,25 @@ const Analytics = () => {
                         <p>There are no customer reviews available at this time.</p>
                     </div>
                 )}
+=======
+                    <div style={{ display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+                        <PieChart width={300} height={300}>
+                            <Pie
+                                data={topServices}
+                                innerRadius={70}
+                                outerRadius={100}
+                                paddingAngle={5}
+                                dataKey="count"
+                            >
+                                {topServices.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                        </PieChart>
+                    </div>
+                </div>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
             </div>
         </div>
     );

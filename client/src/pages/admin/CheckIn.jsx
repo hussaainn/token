@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import QRScanner from '../../components/QRScanner';
 import api from '../../api/axios';
 import { toast } from 'react-hot-toast';
+<<<<<<< HEAD
 import { Scan, User, CheckCircle, AlertCircle, ArrowLeft, Clock } from 'lucide-react';
+=======
+import { Scan, User, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 import { Link } from 'react-router-dom';
 
 const CheckIn = () => {

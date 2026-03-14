@@ -30,6 +30,7 @@ const server = http.createServer(app);
 initSocket(server);
 
 // Security Middleware
+<<<<<<< HEAD
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -96,6 +97,23 @@ app.get('/health', (req, res) =>
 // -----------------------------
 // API Routes
 // -----------------------------
+=======
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+
+// Rate limiting
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: 'Too many requests, please try again later' });
+app.use('/api', limiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'OK', app: 'TOQN - Mercy Salon', timestamp: new Date() }));
+
+// API Routes
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 app.use('/api/auth', authRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/services', serviceRoutes);
@@ -105,15 +123,21 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/staff', staffRoutes);
+<<<<<<< HEAD
 app.use('/api/users/staff', staffRoutes);
 
 // -----------------------------
 // VAPID public key endpoint
 // -----------------------------
+=======
+
+// VAPID public key endpoint for client subscription
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 app.get('/api/push/vapid-key', (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
+<<<<<<< HEAD
 // -----------------------------
 // Error handling
 // -----------------------------
@@ -134,3 +158,18 @@ server.listen(PORT, '0.0.0.0', () => {
 🔧 Environment: ${process.env.NODE_ENV}
 `);
 });
+=======
+// Error handling
+app.use(notFound);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`
+  🚀 TOQN Server running on port ${PORT}
+  📊 Health: http://localhost:${PORT}/health
+  🌐 API: http://localhost:${PORT}/api
+  🔧 Environment: ${process.env.NODE_ENV}
+  `);
+});
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f

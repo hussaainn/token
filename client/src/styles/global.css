@@ -134,6 +134,7 @@ h3 { font-size: clamp(1.1rem, 2vw, 1.4rem); }
 .btn-outline-primary { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
 .btn-outline-primary:hover:not(:disabled) { background: var(--primary); color: #fff; }
 
+<<<<<<< HEAD
 @media (max-width: 768px) {
   .btn {
     padding: 0.8rem 1.4rem;
@@ -141,6 +142,8 @@ h3 { font-size: clamp(1.1rem, 2vw, 1.4rem); }
   }
 }
 
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 .form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem; }
 .form-label { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); }
 .form-control {
@@ -226,6 +229,7 @@ select.form-control { cursor: pointer; }
   display: flex; align-items: center; gap: 1rem;
   transition: all var(--transition);
   position: relative;
+<<<<<<< HEAD
   overflow: hidden; /* Prevent horizontal scroll */
 }
 @media (max-width: 768px) {
@@ -238,6 +242,8 @@ select.form-control { cursor: pointer; }
     align-items: flex-start !important;
     gap: 1rem !important;
   }
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 }
 .token-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
 .token-number {

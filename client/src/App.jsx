@@ -9,8 +9,11 @@ import NotFound from './pages/NotFound';
 // Auth
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
+<<<<<<< HEAD
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
 // Customer
 const BookService = lazy(() => import('./pages/customer/BookService'));
@@ -49,8 +52,11 @@ const App = () => {
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+<<<<<<< HEAD
           <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="reset-password/:token" element={<ResetPassword />} />
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
           <Route path="queue" element={<LiveQueue />} />
           <Route path="notifications" element={<Notifications />} />
 

@@ -5,19 +5,28 @@ import { useSocket } from '../../context/SocketContext';
 import { toast } from 'react-hot-toast';
 import {
     Users, Play, CheckCircle, XCircle, Search,
+<<<<<<< HEAD
     Filter, MoreVertical, Bell, MapPin, Scan, UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import WalkInModal from '../../components/WalkInModal';
 import NotificationModal from '../../components/NotificationModal';
 import { MessageSquare } from 'lucide-react';
+=======
+    Filter, MoreVertical, Bell, MapPin, Scan
+} from 'lucide-react';
+import { format } from 'date-fns';
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
 const QueueControl = () => {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+<<<<<<< HEAD
     const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
     const [selectedCustomerForNotification, setSelectedCustomerForNotification] = useState(null);
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     const { socket } = useSocket();
 
     useEffect(() => {
@@ -72,6 +81,7 @@ const QueueControl = () => {
         }
     };
 
+<<<<<<< HEAD
     const handleSendNotification = async (message) => {
         if (!selectedCustomerForNotification) return;
 
@@ -99,6 +109,8 @@ const QueueControl = () => {
         }
     };
 
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
     const filteredTokens = filter === 'all'
         ? tokens
         : tokens.filter(t => t.status === filter);
@@ -127,9 +139,12 @@ const QueueControl = () => {
                     <button className="btn btn-primary btn-sm" onClick={handleCallNext}>
                         <Bell size={16} style={{ marginRight: '6px' }} /> Call Next
                     </button>
+<<<<<<< HEAD
                     <button className="btn btn-primary btn-sm" onClick={() => setIsWalkInModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--success)' }}>
                         <UserPlus size={16} /> Add Walk-in
                     </button>
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                     <Link to="/admin/check-in" className="btn btn-outline-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Scan size={16} /> Scan Arrival
                     </Link>
@@ -209,6 +224,7 @@ const QueueControl = () => {
                                         >
                                             <XCircle size={16} />
                                         </button>
+<<<<<<< HEAD
                                         {token.customer && token.customer._id && (
                                             <button
                                                 className="btn btn-secondary btn-sm"
@@ -218,6 +234,9 @@ const QueueControl = () => {
                                                 <Bell size={16} />
                                             </button>
                                         )}
+=======
+                                        <button className="btn btn-secondary btn-sm"><Bell size={16} /></button>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                                     </div>
                                 </div>
                             </div>
@@ -231,6 +250,7 @@ const QueueControl = () => {
                     </div>
                 )}
             </div>
+<<<<<<< HEAD
 
             <WalkInModal
                 isOpen={isWalkInModalOpen}
@@ -246,6 +266,8 @@ const QueueControl = () => {
                     customerName={selectedCustomerForNotification.customer?.name}
                 />
             )}
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
         </div>
     );
 };

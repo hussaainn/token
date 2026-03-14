@@ -1,8 +1,13 @@
 const jwt = require('jsonwebtoken');
+<<<<<<< HEAD
 const crypto = require('crypto');
 const User = require('../models/User');
 const Loyalty = require('../models/Loyalty');
 const sendEmail = require('../utils/sendEmail');
+=======
+const User = require('../models/User');
+const Loyalty = require('../models/Loyalty');
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
 
 // ===============================
@@ -288,6 +293,7 @@ exports.changePassword = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+<<<<<<< HEAD
 };
 
 // ===============================
@@ -373,4 +379,6 @@ exports.resetPassword = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 };

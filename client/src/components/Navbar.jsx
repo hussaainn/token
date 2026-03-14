@@ -1,15 +1,23 @@
+<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../api/axios';
+=======
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 import { LogOut, Sun, Moon, Menu, X, User, Bell, Ticket } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout, isAuthenticated } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
+<<<<<<< HEAD
     const [unreadCount, setUnreadCount] = useState(0);
     const { socket } = useSocket();
     const navigate = useNavigate();
@@ -46,6 +54,9 @@ const Navbar = () => {
             setUnreadCount(0); // clear count on logout
         }
     }, [isAuthenticated, user, socket]);
+=======
+    const navigate = useNavigate();
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
 
     const handleLogout = () => {
         logout();
@@ -80,7 +91,10 @@ const Navbar = () => {
                                 <>
                                     <Link to="/customer/book" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Book Service</Link>
                                     <Link to="/customer/tokens" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>My Tokens</Link>
+<<<<<<< HEAD
                                     <Link to="/customer/loyalty" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Loyalty Rewards</Link>
+=======
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                                 </>
                             )}
                             {user.role === 'admin' && <Link to="/admin/dashboard" className="nav-link" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Admin Panel</Link>}
@@ -90,6 +104,7 @@ const Navbar = () => {
                                 <button onClick={toggleTheme} className="btn-icon" style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer' }}>
                                     {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                                 </button>
+<<<<<<< HEAD
                                 <Link to="/notifications" style={{ color: 'var(--text-secondary)', position: 'relative' }}>
                                     <Bell size={20} />
                                     {unreadCount > 0 && (
@@ -112,6 +127,9 @@ const Navbar = () => {
                                         </span>
                                     )}
                                 </Link>
+=======
+                                <Link to="/notifications" style={{ color: 'var(--text-secondary)' }}><Bell size={20} /></Link>
+>>>>>>> df36bf6cc73aa31f12c1ca87b2e06d5d17eb4f1f
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <div className="avatar" style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.8rem' }}>
                                         {user.name.charAt(0)}
