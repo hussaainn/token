@@ -8,13 +8,13 @@ const SocketContext = createContext();
 export const SocketProvider = ({ children }) => {
     const { user } = useAuth();
     const [socket, setSocket] = useState(null);
-    const [status, setStatus] = useState('disconnected'); // 'connecting', 'connected', 'disconnected', 'error'
+    const [status, setStatus] = useState('disconnected');
 
     useEffect(() => {
         let newSocket;
         if (user) {
             setStatus('connecting');
-            newSocket = io('http://172.20.10.2:4000', {
+            newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000', {
                 withCredentials: true,
                 reconnection: true,
                 reconnectionAttempts: 10,
@@ -36,7 +36,6 @@ export const SocketProvider = ({ children }) => {
                 console.log('Socket disconnected:', reason);
                 setStatus('disconnected');
                 if (reason === 'io server disconnect') {
-                    // the disconnection was initiated by the server, you need to reconnect manually
                     newSocket.connect();
                 }
             });
